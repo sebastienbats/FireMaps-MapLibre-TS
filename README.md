@@ -371,53 +371,6 @@ FireMaps-MapLibre-TS/
                 └── index.ts
 ```           
 
-## Sources de données
-
-| Source | Données | Fréquence |
-|--------|---------|-----------|
-| NASA FIRMS (VIIRS + MODIS) | Feux actifs, FRP | Temps réel |
-| Copernicus EMS | Zones brûlées, risque | Quotidien |
-| Météo-France | Vent, météo | 10 min |
-| SDIS | Casernes pompiers | 24h |
-
-## 🏗️ Stack technique
-
-### Frontend
-
-| Technologie | Version | Rôle |
-|-------------|---------|------|
-| **React** | 18.2 | Framework UI |
-| **TypeScript** | 5.3 | Typage statique strict |
-| **Vite** | 5.0 | Build tool + dev server |
-| **TanStack Query** | 5.17 | Fetching, cache, synchronisation |
-| **Zustand** | 4.4 | State management global |
-| **MapLibre GL** | 4.7 | Rendu cartographique WebGL |
-| **Chart.js** | 4.4 | Graphiques d'évolution |
-| **Axios** | 1.6 | Client HTTP |
-| **react-hot-toast** | 2.4 | Notifications |
-
-### Backend
-
-| Technologie | Version | Rôle |
-|-------------|---------|------|
-| **Node.js** | 20+ | Runtime serveur |
-| **Express** | 4.18 | Framework HTTP |
-| **TypeScript** | 5.3 | Typage statique strict |
-| **Mongoose** | 8.0 | ODM MongoDB |
-| **Axios** | 1.6 | Client HTTP (proxy API) |
-| **node-cache** | 5.1 | Cache mémoire TTL |
-| **csv-parse** | 5.5 | Parsing données FIRMS |
-| **Winston** | 3.11 | Logging structuré |
-| **Helmet** | 7.1 | Sécurité HTTP |
-| **express-rate-limit** | 7.1 | Rate limiting |
-| **express-validator** | 7.0 | Validation entrées |
-
-### Base de données
-
-| Technologie | Version | Rôle |
-|-------------|---------|------|
-| **MongoDB** | 7.0 | Stockage historique des feux |
-
 ## Installation
 
 ### Prérequis
