@@ -1,19 +1,16 @@
 import axios from 'axios';
 import NodeCache from 'node-cache';
 import logger from '../config/logger';
-import type { WindCollection, WindPointFeature, MeteoFranceToken } from '../types';
+import type { WindCollection, WindPointFeature } from '../types';
 
-const cache = new NodeCache({ stdTTL: 600 });
+const cache = new NodeCache({ stdTTL: 600 }); // Cache 10 minutes
 
-// ✅ URL réelle de l'API Météo-France
-const METEO_API_URL = 'https://api.meteo-france.com/v1';
-
-// ✅ URL d'authentification OAuth2
-// Note : vérifier l'URL exacte après inscription sur https://api.meteo-france.com/
-const OAUTH_TOKEN_URL = 'https://api.meteo-france.com/oauth/token';
+// ✅ Open-Meteo API — proxy des données Météo-France AROME/ARPEGE
+// ✅ Pas de clé API requise pour usage non commercial
+// ✅ 10 000 appels/jour gratuit
+const OPEN_METEO_URL = 'https://api.open-meteo.com/v1/meteofrance';
 
 // ✅ Grille de points couvrant la France métropolitaine
-// Pas d'endpoint /wind dédié : on extrait le vent depuis /forecast
 const FRANCE_GRID: Array<{ lat: number; lon: number; name: string }> = [
   { lat: 48.8566, lon: 2.3522, name: 'Paris' },
   { lat: 43.2965, lon: 5.3698, name: 'Marseille' },
@@ -31,49 +28,39 @@ const FRANCE_GRID: Array<{ lat: number; lon: number; name: string }> = [
 
 class MeteoFranceService {
   /**
-   * ✅ Récupère les données de vent pour une grille de points sur la France
-   * Utilise l'endpoint réel /v1/forecast (pas /v1/wind qui n'existe pas)
+   * ✅ Récupère les données de vent via Open-Meteo API
+   * Source : Météo-France AROME/ARPEGE via proxy Open-Meteo
+   * Auth : ❌ Aucune clé requise
    */
   async getWindData(): Promise<WindCollection> {
     const cached = cache.get<WindCollection>('meteo_wind');
     if (cached) return cached;
 
-    const apiKey = process.env.METEO_FRANCE_API_KEY;
-    const apiSecret = process.env.METEO_FRANCE_API_SECRET;
-
-    if (!apiKey || !apiSecret) {
-      logger.warn('[Météo-France] Clés API manquantes, retour vide');
-      return this.emptyWind();
-    }
-
     try {
-      const token = await this.getAccessToken(apiKey, apiSecret);
-
       // ✅ Requêtes parallèles sur la grille avec Promise.allSettled
-      // pour ne pas bloquer si un point échoue
       const requests = FRANCE_GRID.map(point =>
-        axios.get(`${METEO_API_URL}/forecast`, {
+        axios.get(OPEN_METEO_URL, {
           params: {
-            lat: point.lat,
-            lon: point.lon,
-            // ✅ Token en header, PAS en query string
-          },
-          headers: {
-            Authorization: `Bearer ${token}`,
-            Accept: 'application/json',
+            latitude: point.lat,
+            longitude: point.lon,
+            hourly: 'wind_speed_10m,wind_direction_10m,wind_gusts_10m',
+            wind_speed_unit: 'kmh',
+            timezone: 'Europe/Paris',
+            forecast_days: 1,
           },
           timeout: 10_000,
         })
           .then(res => this.extractWind(res.data, point.lon, point.lat))
           .catch(err => {
-            logger.warn(`[Météo-France] Erreur point ${point.name}: ${err.message}`);
+            logger.warn(`[Open-Meteo] Erreur point ${point.name}: ${err.message}`);
             return null;
           })
       );
 
       const results = await Promise.allSettled(requests);
       const features: WindPointFeature[] = results
-        .filter((r): r is PromiseFulfilledResult<WindPointFeature | null> => r.status === 'fulfilled')
+        .filter((r): r is PromiseFulfilledResult<WindPointFeature | null> => 
+          r.status === 'fulfilled')
         .map(r => r.value)
         .filter((f): f is WindPointFeature => f !== null);
 
@@ -81,71 +68,44 @@ class MeteoFranceService {
         type: 'FeatureCollection',
         features,
         metadata: {
-          source: 'Météo-France',
+          source: 'Météo-France (via Open-Meteo)',
           count: features.length,
           generatedAt: new Date().toISOString(),
         },
       };
 
       cache.set('meteo_wind', result);
-      logger.info(`[Météo-France] ${features.length}/${FRANCE_GRID.length} points vent`);
+      logger.info(`[Open-Meteo] ${features.length}/${FRANCE_GRID.length} points vent`);
       return result;
     } catch (error) {
       const msg = error instanceof Error ? error.message : 'Erreur inconnue';
-      logger.error(`[Météo-France] Erreur globale: ${msg}`);
+      logger.error(`[Open-Meteo] Erreur globale: ${msg}`);
       return this.emptyWind();
     }
   }
 
   /**
-   * ✅ Authentification OAuth2 — client_credentials
-   * Le token est ensuite passé en header Authorization: Bearer
-   */
-  private async getAccessToken(apiKey: string, apiSecret: string): Promise<string> {
-    try {
-      const res = await axios.post<MeteoFranceToken>(
-        OAUTH_TOKEN_URL,
-        new URLSearchParams({
-          grant_type: 'client_credentials',
-          client_id: apiKey,
-          client_secret: apiSecret,
-        }).toString(),
-        {
-          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-          timeout: 10_000,
-        }
-      );
-      return res.data.access_token;
-    } catch (error) {
-      const msg = error instanceof Error ? error.message : 'Erreur inconnue';
-      logger.error(`[Météo-France] Erreur authentification: ${msg}`);
-      throw new Error('Échec authentification Météo-France');
-    }
-  }
-
-  /**
-   * ✅ Extrait les données de vent depuis la réponse /v1/forecast
-   * Structure réelle : { forecast: { "2026-08-06T13:00:00Z": { T: { wind_speed, wind_direction, wind_gust } } } }
+   * ✅ Extrait les données de vent depuis la réponse Open-Meteo
    */
   private extractWind(
-    data: Record<string, unknown>,
+    data: {
+      hourly?: {
+        time?: string[];
+        wind_speed_10m?: number[];
+        wind_direction_10m?: number[];
+        wind_gusts_10m?: number[];
+      };
+    },
     lon: number,
     lat: number
   ): WindPointFeature | null {
-    const forecast = data.forecast as Record<string, Record<string, Record<string, number>>> | undefined;
-    if (!forecast) return null;
+    const hourly = data.hourly;
+    if (!hourly || !hourly.time || hourly.time.length === 0) return null;
 
-    // Prendre la première prévision disponible
-    const timestamps = Object.keys(forecast);
-    if (timestamps.length === 0) return null;
-
-    const firstTimestamp = timestamps[0];
-    const weatherData = forecast[firstTimestamp];
-    if (!weatherData) return null;
-
-    // Les données de vent sont dans la clé "T" (température/vent)
-    const windData = weatherData.T;
-    if (!windData) return null;
+    // Prendre la première heure disponible
+    const windSpeed = hourly.wind_speed_10m?.[0] || 0;
+    const windDirection = hourly.wind_direction_10m?.[0] || 0;
+    const windGust = hourly.wind_gusts_10m?.[0];
 
     return {
       type: 'Feature',
@@ -154,10 +114,10 @@ class MeteoFranceService {
         coordinates: [lon, lat],
       },
       properties: {
-        speed: windData.wind_speed || 0,
-        direction: windData.wind_direction || 0,
-        gust: windData.wind_gust,
-        source: 'Météo-France',
+        speed: windSpeed,
+        direction: windDirection,
+        gust: windGust,
+        source: 'Météo-France (AROME)',
       },
     };
   }
@@ -167,7 +127,7 @@ class MeteoFranceService {
       type: 'FeatureCollection',
       features: [],
       metadata: {
-        source: 'Météo-France',
+        source: 'Météo-France (via Open-Meteo)',
         count: 0,
         generatedAt: new Date().toISOString(),
       },
