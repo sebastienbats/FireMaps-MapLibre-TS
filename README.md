@@ -9,42 +9,6 @@ Application de surveillance et visualisation spatiale des incendies en France.
 ![Node](https://img.shields.io/badge/Node.js-20-339933?logo=node.js)
 ![License](https://img.shields.io/badge/License-MIT-blue)
 
-<p align="center">
-  <img src="https://img.shields.io/badge/React-18.2-61DAFB?style=flat&logo=react" alt="React" />
-  <img src="https://img.shields.io/badge/TypeScript-5.3-3178C6?style=flat&logo=typescript" alt="TypeScript" />
-  <img src="https://img.shields.io/badge/Vite-5.0-646CFF?style=flat&logo=vite" alt="Vite" />
-  <img src="https://img.shields.io/badge/MapLibre_GL-4.7-00B4D8?style=flat&logo=maplibre" alt="MapLibre" />
-  <img src="https://img.shields.io/badge/Node.js-20-339933?style=flat&logo=node.js" alt="Node.js" />
-  <img src="https://img.shields.io/badge/MongoDB-7.0-47A248?style=flat&logo=mongodb" alt="MongoDB" />
-  <img src="https://img.shields.io/badge/License-MIT-blue?style=flat" alt="License" />
-</p>
-
-<h1 align="center">🔥 FireMaps France</h1>
-
-<p align="center">
-  Application de surveillance et de visualisation spatiale des incendies en France.<br/>
-  Croisement en temps réel de données satellites, météorologiques et opérationnelles.
-</p>
-
-<p align="center">
-  <a href="#-fonctionnalités">Fonctionnalités</a> ·
-  <a href="#-sources-de-données">Sources de données</a> ·
-  <a href="#-stack-technique">Stack</a> ·
-  <a href="#-installation">Installation</a> ·
-  <a href="#-api">API</a> ·
-  <a href="#-déploiement-docker">Docker</a>
-</p>
-
----
-
-## 📸 Aperçu
-
-<p align="center">
-  <img src="./docs/screenshot-dark.png" alt="FireMaps - Mode sombre" width="90%" />
-</p>
-
----
-
 ## ✨ Fonctionnalités
 
 ### 🛰️ Sources de données multi-satellites
