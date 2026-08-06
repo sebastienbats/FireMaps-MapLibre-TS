@@ -11,16 +11,25 @@ Application de surveillance et visualisation spatiale des incendies en France.
 
 ## ✨ Fonctionnalités
 
-### 🛰️ Sources de données multi-satellites
+- 🛰️ **NASA FIRMS** : Feux actifs VIIRS + MODIS en temps réel
+- 🔥 **Zones brûlées** : NASA FIRMS MCD64A1 (mensuel)
+- ⚠️ **Risque incendie** : EFFIS Fire Weather Index (JRC)
+- 🌬️ **Vent** : Météo-France AROME/ARPEGE via Open-Meteo
+- 🚒 **SDIS** : Casernes de pompiers via OpenStreetMap
+- 🚨 **Alertes** : Détection automatique feux extrêmes et proximité SDIS
+- 📊 **Graphiques** : Évolution temporelle des feux et FRP
+- 💾 **Export** : CSV et GeoJSON
 
-| Source | Capteur / Produit | Données | Fréquence | Clé API |
-|--------|-------------------|---------|-----------|---------|
-| **NASA FIRMS** | VIIRS (N/N20) | Feux actifs, FRP, confiance | Temps réel (~15 min) | ✅ Requise |
-| **NASA FIRMS** | MODIS (T/A) | Feux actifs (complément) | Temps réel | ✅ Requise |
-| **NASA FIRMS** | MCD64A1 | Zones brûlées (surface, sévérité) | Mensuel | ✅ Requise |
-| **EFFIS (JRC)** | Fire Weather Index | Zones à risque incendie | Quotidien | ❌ Non |
-| **Météo-France** | Prévisions | Vent (vitesse, direction, rafales) | 10 minutes | ✅ Requise |
-| **OpenStreetMap** | Overpass API | Casernes de pompiers (SDIS) | Statique | ❌ Non |
+### 🛰️ Sources de données
+
+| Source | Données | Fréquence | Auth |
+|--------|---------|-----------|------|
+| NASA FIRMS | Feux actifs (VIIRS + MODIS) | ~15 min | Clé API |
+| NASA FIRMS MCD64A1 | Zones brûlées | Mensuel | Clé API |
+| EFFIS (JRC) | Risque incendie (FWI) | Quotidien | Aucune |
+| Open-Meteo | Vent (Météo-France AROME) | 1h | Aucune |
+| OpenStreetMap | Casernes SDIS | Statique | Aucune |
+| CARTO | Fond de carte | Statique | Aucune |
 
 ### 🗺️ Visualisation cartographique
 
@@ -154,40 +163,30 @@ Application de surveillance et visualisation spatiale des incendies en France.
 | Clé API | ❌ Non requise |
 | Gratuit | ✅ Oui |
 
-### Météo-France
-- API : https://api.meteo-france.com/v1/forecast
-- Auth : OAuth2 (client_credentials)
-- Token : Header Authorization: Bearer {token}
+### Open-Meteo API (proxy Météo-France)
+- API : https://api.open-meteo.com/v1/meteofrance
+- Source : Météo-France AROME/ARPEGE via Open-Meteo
 - Format : JSON
+- Auth : ❌ Aucune clé requise
+- Quota : 10 000 appels/jour (gratuit non commercial)
 
-| Donnée | Description |
-|--------|-------------|
-| `wind_speed` | Vitesse du vent (km/h) |
-| `wind_direction` | Direction du vent (degrés) |
-| `wind_gust` | Rafales (km/h) |
+| Donnée | Paramètre | Unité |
+|--------|-----------|-------|
+| Vitesse vent | `wind_speed_10m` | km/h, m/s, mph, knots |
+| Direction vent | `wind_direction_10m` | degrés (0-360) |
+| Rafales | `wind_gusts_10m` | km/h, m/s, mph, knots |
+| Température | `temperature_2m` | °C, °F |
+| Humidité | `relative_humidity_2m` | % |
+| Précipitations | `precipitation` | mm, inch |
 
-> ⚠️ **Note** : L'API Météo-France ne propose pas d'endpoint `/wind` dédié.
-> Les données de vent sont extraites depuis `/v1/forecast` sur une grille
-> de 12 points couvrant la France métropolitaine.
-
-**Code couleur du vent :**
-
-| Vitesse (km/h) | Couleur |
-|---------------|---------|
-| 0 – 20 | `#3498db` (bleu) |
-| 20 – 40 | `#2ecc71` (vert) |
-| 40 – 60 | `#f39c12` (orange) |
-| 60 – 80 | `#e74c3c` (rouge) |
-| > 80 | `#8e44ad` (violet) |
-
-**Inscription clé API :**
+**Inscription :**
 
 | Champ | Valeur |
 |-------|--------|
-| URL | `https://api.meteo-france.com/` |
-| Étapes | Créer un compte → Créer une application → Obtenir `client_id` + `client_secret` |
-| Gratuit | ✅ Oui |
-| Quota | ~1000 appels/jour |
+| URL | `https://open-meteo.com/` |
+| Clé API | ❌ Non requise |
+| Gratuit | ✅ Oui (non commercial) |
+| Documentation | `https://open-meteo.com/en/docs/meteofrance-api` |
 
 ### OpenStreetMap — Casernes SDIS
 - API : https://overpass-api.de/api/interpreter
@@ -377,28 +376,36 @@ FireMaps-MapLibre-TS/
 
 - Node.js ≥ 20
 - MongoDB ≥ 7
-- Clés API : [NASA FIRMS](https://firms.modaps.eosdis.nasa.gov/api/) · [Copernicus EMS](https://emergency.copernicus.eu/) · [Météo-France](https://api.meteo-france.com/)
+- Clé API NASA FIRMS : [inscription](https://firms.modaps.eosdis.nasa.gov/api/area/)
 
-### Backend
-
+### 🚀 Démarrage rapide
 ```bash
+# 1. Cloner le projet
+git clone https://github.com/sebastienbats/FireMaps-MapLibre.git
+cd FireMaps-MapLibre
+
+# 2. Backend
 cd backend
-cp .env.example .env   # Éditer avec vos clés
+cp .env.example .env
+# Éditer .env avec votre clé FIRMS_API_KEY
 npm install
 npm run dev
-```
 
-### Frontend
-
-```bash
-cd frontend
+# 3. Frontend (nouveau terminal)
+cd ../frontend
 cp .env.example .env
 npm install
 npm run dev
+
+# 4. Vérification
+curl http://localhost:5000/api/health
 ```
-### Docker
+
+### Avec Docker
 
 ```bash
+cp backend/.env.example backend/.env
+# Éditer backend/.env
 docker-compose up -d
 ```
 
@@ -452,6 +459,20 @@ services:
 volumes:
   mongodb_data:
 ```
+
+---
+
+## 🔌 API
+|Endpoint|Description|
+|--------|-----------|
+|GET /api/health|État du serveur|
+|GET /api/fires?days=1|Feux actifs (VIIRS + MODIS)|
+|GET /api/copernicus/burned-areas|Zones brûlées|
+|GET /api/copernicus/fire-risk|Zones à risque|
+|GET /api/meteo/wind|Données de vent|
+|GET /api/sdis|Casernes SDIS|
+
+---
 
 ### Licence
 MIT © Sébastien Bats
