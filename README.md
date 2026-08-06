@@ -90,10 +90,12 @@ Application de surveillance et visualisation spatiale des incendies en France.
 
 ## 🛰️ Sources de données détaillées
 
-### NASA FIRMS (VIIRS + MODIS)
-- API : https://firms.modaps.eosdis.nasa.gov/api/country/csv
+### NASA FIRMS (VIIRS + MODIS + MCD64A1)
+- API : https://firms.modaps.eosdis.nasa.gov/api/country/csv/{KEY}/{COUNTRY}/{DAYS}
+- Burned : https://firms.modaps.eosdis.nasa.gov/api/burned/csv/{KEY}/{COUNTRY}/{YEAR}/{MONTH}
 - Pays : FRA
-- Capteurs : VIIRS (Suomi NPP / NOAA-20) + MODIS (Terra / Aqua)
+- Format : CSV
+- Auth : Clé API dans l'URL (pas de header Authorization)
 
 | Champ | Description |
 |-------|-------------|
@@ -115,33 +117,58 @@ Application de surveillance et visualisation spatiale des incendies en France.
 | 20 – 50 | Modérée | `medium` | `#f39c12` |
 | < 20 | Faible | `low` | `#f1c40f` |
 
-### Copernicus EMS
-- API : https://emergency.copernicus.eu/api/v1
-- Produits : Burned Areas + Fire Risk
+**Inscription clé API :**
 
-| Produit | Données | Usage |
-|---------|---------|-------|
-| **Burned Areas** | Polygones des zones brûlées, sévérité, surface (ha) | Cartographie post-incendie |
-| **Fire Risk** | Zones à risque, indice de risque (0-1) | Prévention et anticipation |
+| Champ | Valeur |
+|-------|--------|
+| URL | `https://firms.modaps.eosdis.nasa.gov/api/area/` |
+| Étapes | Remplir le formulaire → recevoir la clé par email |
+| Gratuit | ✅ Oui |
+| Quota | Illimité pour usage raisonnable |
 
-**Sévérité des zones brûlées :**
+### EFFIS — European Forest Fire Information System
+- API : https://effis.jrc.ec.europa.eu/
+- Produit : Fire Weather Index (FWI)
+- Format : JSON / GeoJSON
+- Auth : ❌ Aucune clé requise
 
-| Surface (ha) | Sévérité | Couleur |
-|-------------|----------|---------|
-| > 1000 | `critical` | `#8B0000` |
-| 500 – 1000 | `high` | `#B22222` |
-| 100 – 500 | `medium` | `#CD853F` |
-| < 100 | `low` | `#DEB887` |
+| Champ | Description |
+|-------|-------------|
+| `fwi` | Fire Weather Index (0-100+) |
+| `lat` / `lon` | Position de la mesure |
+
+**Classification FWI :**
+
+| FWI | Niveau de risque | Couleur |
+|-----|-----------------|---------|
+| > 50 | Extrême | `#FF0000` |
+| 30 – 50 | Élevé | `#FF4500` |
+| 15 – 30 | Modéré | `#FFA500` |
+| < 15 | Faible | `#FFFF00` |
+
+**Inscription :**
+
+| Champ | Valeur |
+|-------|--------|
+| URL | `https://effis.jrc.ec.europa.eu/` |
+| Clé API | ❌ Non requise |
+| Gratuit | ✅ Oui |
 
 ### Météo-France
-- API : https://api.meteo-france.com/v1
-- Authentification : OAuth2 (client_credentials)
+- API : https://api.meteo-france.com/v1/forecast
+- Auth : OAuth2 (client_credentials)
+- Token : Header Authorization: Bearer {token}
+- Format : JSON
 
 | Donnée | Description |
 |--------|-------------|
 | `wind_speed` | Vitesse du vent (km/h) |
 | `wind_direction` | Direction du vent (degrés) |
 | `wind_gust` | Rafales (km/h) |
+
+> ⚠️ **Note** : L'API Météo-France ne propose pas d'endpoint `/wind` dédié.
+> Les données de vent sont extraites depuis `/v1/forecast` sur une grille
+> de 12 points couvrant la France métropolitaine.
 
 **Code couleur du vent :**
 
@@ -153,17 +180,47 @@ Application de surveillance et visualisation spatiale des incendies en France.
 | 60 – 80 | `#e74c3c` (rouge) |
 | > 80 | `#8e44ad` (violet) |
 
-### SDIS
-- API : https://geo.api.gouv.fr/sdis
-- Format : GeoJSON
+**Inscription clé API :**
+
+| Champ | Valeur |
+|-------|--------|
+| URL | `https://api.meteo-france.com/` |
+| Étapes | Créer un compte → Créer une application → Obtenir `client_id` + `client_secret` |
+| Gratuit | ✅ Oui |
+| Quota | ~1000 appels/jour |
+
+### OpenStreetMap — Casernes SDIS
+- API : https://overpass-api.de/api/interpreter
+- Miroir : https://overpass.kumi.systems/api/interpreter
+- Tag OSM : amenity=fire_station
+- Format : JSON
+- Auth : ❌ Aucune clé requise
 
 | Champ | Description |
 |-------|-------------|
 | `name` | Nom de la caserne |
-| `department` | Code département |
-| `type` | `principal` ou `secondaire` |
-| `capacity` | Capacité opérationnelle |
-| `contact` | Coordonnées |
+| `operator` | Opérateur (SDIS, BSPP, BMPM) |
+| `phone` | Téléphone |
+| `fire_station` | Type (wildfire, etc.) |
+
+**Inscription :**
+
+| Champ | Valeur |
+|-------|--------|
+| URL | `https://overpass-api.de/` |
+| Clé API | ❌ Non requise |
+| Gratuit | ✅ Oui |
+
+### CARTO Basemaps
+- Dark : https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json
+- Light : https://basemaps.cartocdn.com/gl/positron-gl-style/style.json
+- Auth : ❌ Aucune clé requise (usage non commercial)
+
+| Champ | Valeur |
+|-------|--------|
+| URL inscription | `https://carto.com/signup/` |
+| Clé API | ❌ Non requise pour les styles publics |
+| Gratuit | ✅ Oui (usage non commercial) |
 
 ---
 
