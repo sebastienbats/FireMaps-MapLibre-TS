@@ -51,25 +51,45 @@ class FirmsService {
     }
   }
 
-  private async fetchSensor(key: string, sensor: FireSensorType, days: number): Promise<FireFeature[]> {
+  private async fetchSensor(
+    key: string,
+    sensor: FireSensorType,
+    days: number
+  ): Promise<FireFeature[]> {
+    // ✅ URL : https://firms.modaps.eosdis.nasa.gov/api/country/csv/{KEY}/{COUNTRY}/{DAYS}
+    // ✅ La clé API est dans l'URL, PAS en header Authorization
+    const url = `${FIRMS_API_URL}/${key}/${COUNTRY_CODE}/${days}`;
+
     try {
-      const res = await axios.get<string>(
-        `${FIRMS_API_URL}/${key}/${COUNTRY_CODE}/${days}`,
-        { timeout: TIMEOUT_MS, headers: { 'User-Agent': 'FireMaps/4.0', Accept: 'text/csv' } }
-      );
-      const records: FirmsCsvRecord[] = parse(res.data, {
-        columns: true, skip_empty_lines: true, trim: true,
+      const res = await axios.get<string>(url, {
+        timeout: TIMEOUT_MS,
+        headers: {
+          'User-Agent': 'FireMaps/4.1',
+          'Accept': 'text/csv',
+          // ✅ PAS de header Authorization pour FIRMS
+          // La clé est déjà dans l'URL
+        },
       });
-      return records.filter(r => r.latitude && r.longitude).map(r => this.toFeature(r, sensor));
+
+      const records: FirmsCsvRecord[] = parse(res.data, {
+        columns: true,
+        skip_empty_lines: true,
+        trim: true,
+      });
+
+      return records
+        .filter(r => r.latitude && r.longitude)
+        .map(r => this.toFeature(r, sensor));
     } catch (error) {
       const msg = error instanceof Error ? error.message : 'Erreur inconnue';
-      logger.warn(`[FIRMS] ${sensor}: ${msg}`);
+      logger.warn(`[FIRMS] Erreur ${sensor}: ${msg}`);
       return [];
     }
   }
 
   private toFeature(r: FirmsCsvRecord, sensor: FireSensorType): FireFeature {
     const frp = parseFloat(r.frp) || 0;
+
     const props: FireProperties = {
       brightness: parseFloat(r.brightness) || 0,
       frp,
@@ -83,9 +103,13 @@ class FirmsService {
       intensityClass: this.intensityClass(frp),
       source: 'NASA FIRMS',
     };
+
     return {
       type: 'Feature',
-      geometry: { type: 'Point', coordinates: [parseFloat(r.longitude), parseFloat(r.latitude)] },
+      geometry: {
+        type: 'Point',
+        coordinates: [parseFloat(r.longitude), parseFloat(r.latitude)],
+      },
       properties: props,
     };
   }
