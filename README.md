@@ -381,8 +381,8 @@ FireMaps-MapLibre-TS/
 ### 🚀 Démarrage rapide
 ```bash
 # 1. Cloner le projet
-git clone https://github.com/sebastienbats/FireMaps-MapLibre.git
-cd FireMaps-MapLibre
+git clone https://github.com/sebastienbats/FireMaps-MapLibre-TS.git
+cd FireMaps-MapLibre-TS
 
 # 2. Backend
 cd backend
