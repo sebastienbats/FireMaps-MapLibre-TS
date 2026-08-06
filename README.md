@@ -400,15 +400,6 @@ npm run dev
 # 4. Vérification
 curl http://localhost:5000/api/health
 ```
-
-### Avec Docker
-
-```bash
-cp backend/.env.example backend/.env
-# Éditer backend/.env
-docker-compose up -d
-```
-
 ### Scripts
 
 |Commande|Description|
@@ -417,6 +408,14 @@ docker-compose up -d
 |npm run build|Build de production|
 |npm run typecheck|Vérification TypeScript|
 |npm run preview|Prévisualiser le build|
+
+### Avec Docker
+
+```bash
+cp backend/.env.example backend/.env
+# Éditer backend/.env
+docker-compose up -d
+```
 
 ### `docker-compose.yml`
 
