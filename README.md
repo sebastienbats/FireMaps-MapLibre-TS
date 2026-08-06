@@ -13,30 +13,30 @@ Application de surveillance et visualisation spatiale des incendies en France.
 
 ### 🛰️ Sources de données multi-satellites
 
-| Source | Capteur / Produit | Données | Fréquence |
-|--------|-------------------|---------|-----------|
-| **NASA FIRMS** | VIIRS (N/N20) | Feux actifs, FRP, confiance | Temps réel (~15 min) |
-| **NASA FIRMS** | MODIS (T/A) | Feux actifs (complément) | Temps réel |
-| **Copernicus EMS** | Burned Areas | Zones brûlées, sévérité, surface | Quotidien |
-| **Copernicus EMS** | Fire Risk | Zones à risque, indice de risque | Quotidien |
-| **Météo-France** | Prévisions vent | Vitesse, direction, rafales | 10 minutes |
-| **SDIS** | Casernes | Localisation, type, capacité | 24 heures |
+| Source | Capteur / Produit | Données | Fréquence | Clé API |
+|--------|-------------------|---------|-----------|---------|
+| **NASA FIRMS** | VIIRS (N/N20) | Feux actifs, FRP, confiance | Temps réel (~15 min) | ✅ Requise |
+| **NASA FIRMS** | MODIS (T/A) | Feux actifs (complément) | Temps réel | ✅ Requise |
+| **NASA FIRMS** | MCD64A1 | Zones brûlées (surface, sévérité) | Mensuel | ✅ Requise |
+| **EFFIS (JRC)** | Fire Weather Index | Zones à risque incendie | Quotidien | ❌ Non |
+| **Météo-France** | Prévisions | Vent (vitesse, direction, rafales) | 10 minutes | ✅ Requise |
+| **OpenStreetMap** | Overpass API | Casernes de pompiers (SDIS) | Statique | ❌ Non |
 
 ### 🗺️ Visualisation cartographique
 
 - **Heatmap dynamique** des feux actifs avec densité par zoom
-- **Marqueurs proportionnels** dont la taille et la couleur dépendent du FRP (Fire Radiative Power)
-- **Polygones Copernicus** pour les zones brûlées avec code couleur par sévérité
-- **Zones à risque** Copernicus avec niveaux de risque gradués
+- **Marqueurs proportionnels** dont la taille et la couleur dépendent du FRP
+- **Polygones de zones brûlées** avec code couleur par sévérité
+- **Zones à risque** EFFIS avec niveaux de risque gradués
 - **Lignes de vent** Météo-France colorées par vitesse
-- **Marqueurs SDIS** avec popups détaillés (département, type, contact)
+- **Marqueurs SDIS** avec popups détaillés
 - **Fond de carte** CARTO (Dark Matter / Positron) via MapLibre GL
 - **Navigation** : zoom, pan, boussole, échelle métrique
 - **Contraintes géographiques** : limites France métropolitaine
 
 ### 🚨 Système d'alertes intelligent
 
-- **Feux extrêmes** : FRP > 100 MW (alerte haute), FRP > 200 MW (alerte critique)
+- **Feux extrêmes** : FRP > 100 MW (haute), FRP > 200 MW (critique)
 - **Proximité SDIS** : feu à moins de 10 km d'une caserne avec FRP > 50 MW
 - **Tendance journalière** : plus de 50 feux détectés dans la journée
 - **Tri par sévérité** : critique → haute → moyenne → faible
@@ -56,16 +56,15 @@ Application de surveillance et visualisation spatiale des incendies en France.
 - **CSV** : export tabulaire avec échappement RFC 4180
 - **GeoJSON** : export géospatial compatible QGIS / ArcGIS
 - **Sauvegarde serveur** : fichiers stockés côté backend
-- **Téléchargement local** : fichier téléchargé simultanément dans le navigateur
+- **Téléchargement local** : fichier téléchargé simultanément
 
 ### 🎨 Interface utilisateur
 
 - **Mode sombre / clair** avec transition fluide
 - **Glassmorphism** : panneaux translucides avec backdrop-filter
 - **Panneau de contrôle** avec toggles par source de données
-- **Compteurs en temps réel** : nombre de feux, zones Copernicus, casernes SDIS
+- **Compteurs en temps réel** : feux, zones brûlées, casernes SDIS
 - **Indicateur de dernière mise à jour**
-- **Responsive design** adapté desktop et tablette
 - **Police Inter** pour une lisibilité optimale
 
 ### ⚡ Performance et état
@@ -74,19 +73,18 @@ Application de surveillance et visualisation spatiale des incendies en France.
 - **TanStack Query v5** : cache, retry exponentiel, refetch interval, devtools
 - **Zustand v4** : state management global sans prop drilling
 - **Memoization** : `useMemo` / `useCallback` sur les composants lourds
-- **Nettoyage des marqueurs** : `useRef` + cleanup dans `useEffect` (zéro memory leak)
+- **Nettoyage des marqueurs** : `useRef` + cleanup dans `useEffect`
 - **Code splitting** : chunks séparés pour MapLibre, Chart.js, React, TanStack
 
 ### 🔒 Sécurité
 
-- **Helmet** : headers HTTP sécurisés (CSP, X-Frame-Options, etc.)
+- **Helmet** : headers HTTP sécurisés
 - **CORS strict** : origines autorisées via variable d'environnement
 - **Rate limiting** : 100 requêtes / 15 min par IP
 - **Clés API côté serveur** : jamais exposées au navigateur
 - **Validation des entrées** : express-validator sur les routes sensibles
 - **Protection path traversal** : `path.basename()` sur les exports
 - **Limite de payload** : 10 Mo max par requête
-- **Échappement CSV** : conformité RFC 4180
 
 ---
 
