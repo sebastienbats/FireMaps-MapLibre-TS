@@ -1,12 +1,71 @@
-.fire-chart-container { background: rgba(255,255,255,.05); border-radius: 12px; border: 1px solid rgba(255,255,255,.08); padding: 14px; }
-.chart-header { margin-bottom: 12px; }
-.chart-summary { display: flex; gap: 16px; margin-bottom: 10px; }
-.summary-item { display: flex; flex-direction: column; gap: 2px; }
-.summary-item span:first-child { font-size: .72rem; opacity: .6; }
-.summary-item span:last-child { font-size: 1rem; font-weight: 700; }
-.chart-controls { display: flex; gap: 4px; flex-wrap: wrap; }
-.chart-controls button { background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.1); border-radius: 6px; padding: 4px 10px; cursor: pointer; font-size: .75rem; color: inherit; transition: background .2s; }
-.chart-controls button.active { background: rgba(231,76,60,.3); border-color: #e74c3c; }
-.chart-controls button:hover { background: rgba(255,255,255,.15); }
-.chart-main { height: 220px; }
-.chart-empty { display: flex; align-items: center; justify-content: center; height: 120px; opacity: .5; font-size: .9rem; }
+.fire-chart-container {
+  background: rgba(255,255,255,.05);
+  border-radius: 12px;
+  border: 1px solid rgba(255,255,255,.08);
+  padding: 14px;
+}
+
+.chart-header {
+  margin-bottom: 12px;
+}
+
+.chart-summary {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 10px;
+}
+
+.summary-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.summary-item span:first-child {
+  font-size: .72rem;
+  opacity: .6;
+}
+
+.summary-item span:last-child {
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.chart-controls {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.chart-controls button {
+  background: rgba(255,255,255,.08);
+  border: 1px solid rgba(255,255,255,.1);
+  border-radius: 6px;
+  padding: 4px 10px;
+  cursor: pointer;
+  font-size: .75rem;
+  color: inherit;
+  transition: background .2s;
+}
+
+.chart-controls button.active {
+  background: rgba(231,76,60,.3);
+  border-color: #e74c3c;
+}
+
+.chart-controls button:hover {
+  background: rgba(255,255,255,.15);
+}
+
+.chart-main {
+  height: 220px;
+}
+
+.chart-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 120px;
+  opacity: .5;
+  font-size: .9rem;
+}
