@@ -376,7 +376,7 @@ FireMaps-MapLibre-TS/
 
 - Node.js ≥ 20
 - MongoDB ≥ 7
-  ** Etape 1. Installer MongoDB local (Ubuntu/Debian)**
+  #### Etape 1. Installer MongoDB local (Ubuntu/Debian)
     ```bash
     # Importer la clé GPG
     curl -fsSL https://www.mongodb.org/static/pgp/server-7.0.asc | \
@@ -390,7 +390,7 @@ FireMaps-MapLibre-TS/
     sudo apt-get update
     sudo apt-get install -y mongodb-org
     ```
-** Étape 2 — Démarrer MongoDB**
+#### Étape 2 — Démarrer MongoDB
     ```bash
     # Démarrer le service
     sudo systemctl start mongod
@@ -399,7 +399,7 @@ FireMaps-MapLibre-TS/
     # Vérifier le statut
     sudo systemctl status mongod
     ```
-**Étape 3 — Vérifier la connexion**
+#### Étape 3 — Vérifier la connexion
     ```bash
     # Se connecter au shell MongoDB
     mongosh
@@ -409,7 +409,7 @@ FireMaps-MapLibre-TS/
     # Quitter
     > exit
     ```
-**Étape 4 — Créer la base de données FireMaps**
+#### Étape 4 — Créer la base de données FireMaps
     ```bash
     mongosh
     ```
@@ -423,7 +423,7 @@ FireMaps-MapLibre-TS/
     // Quitter
     exit
     ```
-**Étape 5 — Configurer le .env**
+#### Étape 5 — Configurer le .env
     ```env
     # backend/.env
     MONGODB_URI=mongodb://localhost:27017/firemaps
