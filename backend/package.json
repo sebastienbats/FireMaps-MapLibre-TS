@@ -1,9 +1,14 @@
 {
   "name": "firemaps-backend",
-  "version": "4.0.0",
-  "description": "Backend FireMaps - NASA FIRMS, Copernicus EMS, Météo-France, SDIS",
+  "version": "4.2.0",
+  "description": "Backend FireMaps - NASA FIRMS, EFFIS, Open-Meteo, OpenStreetMap",
   "main": "dist/server.js",
+  "engines": {
+    "node": ">=20.0.0",
+    "npm": ">=10.0.0"
+  },
   "scripts": {
+    "preinstall": "node scripts/check-node-version.js",
     "build": "tsc",
     "start": "node dist/server.js",
     "dev": "nodemon",
