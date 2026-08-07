@@ -8,9 +8,6 @@ import type {
 
 const cache = new NodeCache({ stdTTL: 3600 });
 
-// ✅ Bounding box de la France (west,south,east,north)
-const FRANCE_BBOX = '-5.5,41.0,10.0,51.5';
-
 // ✅ NASA FIRMS API pour les zones brûlées (MCD64A1)
 const FIRMS_BURNED_URL = 'https://firms.modaps.eosdis.nasa.gov/api/burned/csv';
 
@@ -34,8 +31,7 @@ const FRANCE_GRID: Array<{ lat: number; lon: number; name: string }> = [
 class CopernicusService {
   /**
    * Zones brûlées — NASA FIRMS MCD64A1
-   * ✅ Format réel : /api/burned/csv/{KEY}/{SOURCE}/global/{YEAR}{DOY}
-   * Alternative : /api/country/csv/{KEY}/MCD64A1/{COUNTRY}
+   * Format réel : /api/burned/csv/{KEY}/MCD64A1/{COUNTRY}
    */
   async getBurnedAreas(bbox: BoundingBox | null = null): Promise<BurnedAreaCollection> {
     const cacheKey = `burned_${JSON.stringify(bbox)}`;
@@ -102,7 +98,7 @@ class CopernicusService {
 
   /**
    * Risque incendie — Calcul FWI simplifié basé sur Open-Meteo
-   * ✅ EFFIS n'ayant pas d'API publique, on calcule un indice de risque
+   * EFFIS n'ayant pas d'API publique, on calcule un indice de risque
    * à partir de : température, humidité, vitesse du vent, précipitations
    */
   async getFireRisk(): Promise<FireRiskCollection> {
@@ -180,7 +176,6 @@ class CopernicusService {
     const hourly = data.hourly;
     if (!hourly || !hourly.time || hourly.time.length === 0) return null;
 
-    // Prendre les valeurs moyennes sur les prochaines 24h
     const temps = hourly.temperature_2m || [];
     const humids = hourly.relative_humidity_2m || [];
     const winds = hourly.wind_speed_10m || [];
@@ -194,20 +189,16 @@ class CopernicusService {
     const totalPrecip = precip.reduce((a, b) => a + b, 0);
 
     // ✅ Calcul FWI simplifié (0-100)
-    // - Température élevée → risque augmente
-    // - Humidité faible → risque augmente
-    // - Vent fort → risque augmente
-    // - Précipitations → risque diminue
-    const tempScore = Math.min(Math.max((avgTemp - 15) * 2, 0), 30); // 0-30
-    const humidScore = Math.min(Math.max((70 - avgHumid) * 0.8, 0), 40); // 0-40
-    const windScore = Math.min(avgWind * 0.5, 25); // 0-25
-    const precipPenalty = Math.min(totalPrecip * 5, 30); // 0-30 de pénalité
+    const tempScore = Math.min(Math.max((avgTemp - 15) * 2, 0), 30);
+    const humidScore = Math.min(Math.max((70 - avgHumid) * 0.8, 0), 40);
+    const windScore = Math.min(avgWind * 0.5, 25);
+    const precipPenalty = Math.min(totalPrecip * 5, 30);
 
     const fwi = Math.max(0, Math.min(100,
       tempScore + humidScore + windScore - precipPenalty
     ));
 
-    const delta = 0.3; // ~30km de rayon autour du point
+    const delta = 0.3;
     const polygon: Position[][] = [
       [
         [lon - delta, lat - delta] as Position,
@@ -226,7 +217,6 @@ class CopernicusService {
         risk_index: Math.round(fwi),
         product: 'Fire Risk',
         source: 'FWI calculé (Open-Meteo)',
-        // Métadonnées supplémentaires pour le debug
         _debug: {
           name,
           avgTemp: Math.round(avgTemp * 10) / 10,
