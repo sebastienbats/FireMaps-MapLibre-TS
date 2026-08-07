@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef, useCallback } from 'react';
 import maplibregl from 'maplibre-gl';
 import type { SdisCollection } from '@types/index';
 import { LAYER_ORDER } from './Map';
@@ -9,12 +9,28 @@ interface SdisLayerProps {
   openPopup: (lngLat: [number, number], html: string) => void;
 }
 
-// ✅ P2 : Couche vectorielle (pas de marqueurs HTML)
 const SdisLayer: React.FC<SdisLayerProps> = ({ map, sdisData, openPopup }) => {
+  const isInitialized = useRef(false);
+
+  const handleClick = useCallback((e: maplibregl.MapMouseEvent & { features?: maplibregl.MapGeoJSONFeature[] }) => {
+    if (!e.features?.length) return;
+    const p = e.features[0].properties as Record<string, unknown>;
+
+    openPopup(
+      [e.lngLat.lng, e.lngLat.lat],
+      `<div style="padding:8px;color:#1a1a2e">
+        <h3 style="margin:0 0 8px;color:#3498db">🚒 ${String(p.name ?? 'Caserne')}</h3>
+        <p style="margin:4px 0"><b>Département:</b> ${String(p.department ?? 'N/A')}</p>
+        <p style="margin:4px 0"><b>Type:</b> ${String(p.type ?? 'N/A')}</p>
+        <p style="margin:4px 0"><b>Capacité:</b> ${String(p.capacity ?? 'N/A')}</p>
+        <p style="margin:4px 0"><b>Contact:</b> ${String(p.contact ?? 'N/A')}</p>
+      </div>`
+    );
+  }, [openPopup]);
+
   useEffect(() => {
     if (!map || !sdisData?.features?.length) return;
 
-    // ✅ Ajouter/mettre à jour la source
     const src = map.getSource('sdis') as maplibregl.GeoJSONSource | undefined;
     if (src) {
       src.setData(sdisData as GeoJSON.FeatureCollection);
@@ -22,7 +38,6 @@ const SdisLayer: React.FC<SdisLayerProps> = ({ map, sdisData, openPopup }) => {
       map.addSource('sdis', { type: 'geojson', data: sdisData as GeoJSON.FeatureCollection });
     }
 
-    // ✅ Couche circle vectorielle (remplace les marqueurs HTML)
     if (!map.getLayer('sdis-points')) {
       map.addLayer({
         id: 'sdis-points',
@@ -46,7 +61,6 @@ const SdisLayer: React.FC<SdisLayerProps> = ({ map, sdisData, openPopup }) => {
       });
     }
 
-    // ✅ P1 : Réorganiser l'ordre des couches
     const sdisIdx = LAYER_ORDER.indexOf('sdis-points');
     if (sdisIdx > 0 && sdisIdx < LAYER_ORDER.length - 1) {
       const beforeId = LAYER_ORDER[sdisIdx + 1];
@@ -55,32 +69,20 @@ const SdisLayer: React.FC<SdisLayerProps> = ({ map, sdisData, openPopup }) => {
       }
     }
 
-    // ✅ P2 : Popup unique via openPopup
-    const clickHandler = (e: maplibregl.MapMouseEvent & { features?: maplibregl.MapGeoJSONFeature[] }): void => {
-      if (!e.features?.length) return;
-      const p = e.features[0].properties as Record<string, unknown>;
-      
-      openPopup(
-        [e.lngLat.lng, e.lngLat.lat],
-        `<div style="padding:8px;color:#1a1a2e">
-          <h3 style="margin:0 0 8px;color:#3498db">🚒 ${String(p.name ?? 'Caserne')}</h3>
-          <p style="margin:4px 0"><b>Département:</b> ${String(p.department ?? 'N/A')}</p>
-          <p style="margin:4px 0"><b>Type:</b> ${String(p.type ?? 'N/A')}</p>
-          <p style="margin:4px 0"><b>Capacité:</b> ${String(p.capacity ?? 'N/A')}</p>
-          <p style="margin:4px 0"><b>Contact:</b> ${String(p.contact ?? 'N/A')}</p>
-        </div>`
-      );
-    };
+    if (!isInitialized.current) {
+      map.on('click', 'sdis-points', handleClick as (e: maplibregl.MapMouseEvent) => void);
+      isInitialized.current = true;
+    }
 
-    map.on('click', 'sdis-points', clickHandler as (e: maplibregl.MapMouseEvent) => void);
-
-    // ✅ P1 : Cleanup au démontage
     return () => {
-      map.off('click', 'sdis-points', clickHandler as (e: maplibregl.MapMouseEvent) => void);
+      if (isInitialized.current) {
+        map.off('click', 'sdis-points', handleClick as (e: maplibregl.MapMouseEvent) => void);
+        isInitialized.current = false;
+      }
       if (map.getLayer('sdis-points')) map.removeLayer('sdis-points');
       if (map.getSource('sdis')) map.removeSource('sdis');
     };
-  }, [map, sdisData, openPopup]);
+  }, [map, sdisData, handleClick]);
 
   return null;
 };
