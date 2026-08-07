@@ -91,9 +91,10 @@
   display: flex;
   flex: 1;
   overflow: hidden;
-  min-height: 0; /* ✅ CRITIQUE : permet le scroll dans flexbox */
+  min-height: 0;
 }
 
+/* ✅ La sidebar est un conteneur SCROLLABLE */
 .sidebar {
   width: 340px;
   display: flex;
@@ -103,7 +104,8 @@
   background: rgba(26,26,46,.6);
   backdrop-filter: blur(8px);
   border-right: 1px solid rgba(255,255,255,.06);
-  overflow: hidden; /* ✅ Le scroll se fait dans chaque enfant */
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 
 .app:not(.dark-mode) .sidebar {
@@ -111,26 +113,28 @@
   border-right-color: rgba(0,0,0,.06);
 }
 
-/* ✅ Les panneaux enfants ne se réduisent pas par défaut */
+/* ✅ Scrollbar de la sidebar */
+.sidebar::-webkit-scrollbar {
+  width: 6px;
+}
+
+.sidebar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.sidebar::-webkit-scrollbar-thumb {
+  background: rgba(255,255,255,.15);
+  border-radius: 3px;
+}
+
+.sidebar::-webkit-scrollbar-thumb:hover {
+  background: rgba(255,255,255,.3);
+}
+
+/* ✅ Chaque panneau a sa taille naturelle, jamais de chevauchement */
 .sidebar > * {
   flex-shrink: 0;
-}
-
-/* ✅ Le panneau Controls prend la place disponible SEULEMENT quand déplié */
-.sidebar > .controls-panel.expanded {
-  flex: 1;
-  min-height: 0;
-}
-
-/* ✅ Quand replié, le panneau garde sa taille naturelle (header uniquement) */
-.sidebar > .controls-panel:not(.expanded) {
-  flex: 0 0 auto;
-}
-
-/* ✅ Les Alerts et Chart ont une taille fixe */
-.sidebar > .alerts-panel,
-.sidebar > .fire-chart-container {
-  flex-shrink: 0;
+  width: 100%;
 }
 
 .map-container {
