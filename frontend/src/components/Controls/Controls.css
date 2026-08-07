@@ -5,24 +5,10 @@
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  /* ✅ Pas de flex:1 ici, géré par App.css */
-  transition: max-height .3s ease, opacity .3s ease;
 }
 
 .controls-panel.dark {
   background: rgba(255,255,255,.03);
-}
-
-/* ✅ État replié : hauteur limitée au header uniquement */
-.controls-panel:not(.expanded) {
-  max-height: 46px;
-}
-
-/* ✅ État déplié : hauteur automatique avec scroll si nécessaire */
-.controls-panel.expanded {
-  max-height: 100%;
-  flex: 1;
-  min-height: 0;
 }
 
 .controls-header {
@@ -32,9 +18,9 @@
   padding: 12px 16px;
   cursor: pointer;
   user-select: none;
-  flex-shrink: 0;
   transition: background .2s;
   background: rgba(255,255,255,.02);
+  flex-shrink: 0;
 }
 
 .controls-header:hover {
@@ -52,55 +38,24 @@
   transition: transform .3s ease;
 }
 
-/* ✅ Rotation de la flèche selon l'état */
-.controls-panel.expanded .controls-toggle {
-  transform: rotate(0deg);
-}
-
-.controls-panel:not(.expanded) .controls-toggle {
-  transform: rotate(180deg);
-}
-
-/* ✅ Le contenu est scrollable quand il dépasse */
+/* ✅ Contenu visible UNIQUEMENT quand expanded */
 .controls-content {
   padding: 8px 16px 16px;
-  overflow-y: auto;
-  overflow-x: hidden;
-  flex: 1;
-  min-height: 0;
-  
-  /* ✅ Animation d'apparition */
-  animation: slideDown .3s ease;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  animation: slideDown .25s ease;
 }
 
 @keyframes slideDown {
   from {
     opacity: 0;
-    transform: translateY(-10px);
+    transform: translateY(-8px);
   }
   to {
     opacity: 1;
     transform: translateY(0);
   }
-}
-
-/* ✅ Scrollbar personnalisée */
-.controls-content::-webkit-scrollbar {
-  width: 6px;
-}
-
-.controls-content::-webkit-scrollbar-track {
-  background: rgba(255,255,255,.05);
-  border-radius: 3px;
-}
-
-.controls-content::-webkit-scrollbar-thumb {
-  background: rgba(255,255,255,.2);
-  border-radius: 3px;
-}
-
-.controls-content::-webkit-scrollbar-thumb:hover {
-  background: rgba(255,255,255,.35);
 }
 
 .control-section {
