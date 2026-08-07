@@ -10,8 +10,8 @@ const Controls: React.FC = () => {
   const {
     darkMode,
     showFires, toggleFires,
-    showBurnedAreas, toggleBurnedAreas,
-    showFireRisk, toggleFireRisk,
+    showBurnedAreas, activateBurnedAreas,
+    showFireRisk, activateFireRisk,
     showWind, toggleWind,
     showSdis, toggleSdis,
     windOpacity, setWindOpacity,
@@ -22,7 +22,6 @@ const Controls: React.FC = () => {
   const { data: fireRisk } = useFireRisk();
   const { data: sdisData } = useSdisData();
 
-  // ✅ Ouvert par défaut
   const [open, setOpen] = useState(true);
 
   return (
@@ -57,22 +56,30 @@ const Controls: React.FC = () => {
             />
           </div>
 
+          {/* ✅ P3 : Exclusion mutuelle burned/risk */}
           <div className="control-section">
             <h3 className="section-title">🔥 Zones brûlées / Risque</h3>
             <LayerToggle
               label="Zones brûlées (BA_MODIS)"
               checked={showBurnedAreas}
-              onChange={toggleBurnedAreas}
+              onChange={activateBurnedAreas}
               count={burnedAreas?.features?.length ?? 0}
               color="#8B4513"
+              disabled={showFireRisk} // ✅ Désactivé si risk est actif
             />
             <LayerToggle
               label="Risque incendie (FWI)"
               checked={showFireRisk}
-              onChange={toggleFireRisk}
+              onChange={activateFireRisk}
               count={fireRisk?.features?.length ?? 0}
               color="#FF4500"
+              disabled={showBurnedAreas} // ✅ Désactivé si burned est actif
             />
+            {showBurnedAreas && showFireRisk && (
+              <p style={{ fontSize: '.7rem', opacity: .5, marginTop: 4 }}>
+                ⚠️ Une seule couche peut être active à la fois
+              </p>
+            )}
           </div>
 
           <div className="control-section">
