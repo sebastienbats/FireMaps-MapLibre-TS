@@ -8,21 +8,34 @@ import type {
 
 const cache = new NodeCache({ stdTTL: 3600 });
 
-// ✅ Bounding box de la France métropolitaine
+// ✅ Bounding box de la France (west,south,east,north)
 const FRANCE_BBOX = '-5.5,41.0,10.0,51.5';
 
-// ✅ URLs EFFIS (plusieurs endpoints testés en cascade)
-const EFFIS_URLS = [
-  'https://effis.jrc.ec.europa.eu/static/public/data/public/fwi_current.json',
-  'https://effis.jrc.ec.europa.eu/api/v1/fwi/current',
-  'https://cidportal.jrc.ec.europa.eu/ftp/jrc-opendata/EFFIS/fwi/current.json',
+// ✅ NASA FIRMS API pour les zones brûlées (MCD64A1)
+const FIRMS_BURNED_URL = 'https://firms.modaps.eosdis.nasa.gov/api/burned/csv';
+
+// ✅ Open-Meteo pour calculer un indice de risque FWI simplifié
+const OPEN_METEO_URL = 'https://api.open-meteo.com/v1/meteofrance';
+
+// ✅ Points clés sur la France pour le calcul FWI
+const FRANCE_GRID: Array<{ lat: number; lon: number; name: string }> = [
+  { lat: 48.8566, lon: 2.3522, name: 'Paris' },
+  { lat: 43.2965, lon: 5.3698, name: 'Marseille' },
+  { lat: 45.7640, lon: 4.8357, name: 'Lyon' },
+  { lat: 44.8378, lon: -0.5792, name: 'Bordeaux' },
+  { lat: 43.6047, lon: 1.4442, name: 'Toulouse' },
+  { lat: 42.6987, lon: 2.8956, name: 'Perpignan' },
+  { lat: 43.6108, lon: 3.8767, name: 'Montpellier' },
+  { lat: 44.1000, lon: 4.0800, name: 'Nîmes' },
+  { lat: 43.5000, lon: 6.4500, name: 'Toulon' },
+  { lat: 41.9269, lon: 8.7360, name: 'Ajaccio' },
 ];
 
 class CopernicusService {
   /**
    * Zones brûlées — NASA FIRMS MCD64A1
-   * ✅ Format AREA (plus fiable que COUNTRY pour la France)
-   * URL : /api/burned/area/csv/{KEY}/{AREA}/{YEAR}/{MONTH}
+   * ✅ Format réel : /api/burned/csv/{KEY}/{SOURCE}/global/{YEAR}{DOY}
+   * Alternative : /api/country/csv/{KEY}/MCD64A1/{COUNTRY}
    */
   async getBurnedAreas(bbox: BoundingBox | null = null): Promise<BurnedAreaCollection> {
     const cacheKey = `burned_${JSON.stringify(bbox)}`;
@@ -36,14 +49,8 @@ class CopernicusService {
     }
 
     try {
-      // MCD64A1 a un délai de ~2 mois, on prend le mois M-2
-      const now = new Date();
-      const targetDate = new Date(now.getFullYear(), now.getMonth() - 2, 1);
-      const year = targetDate.getFullYear();
-      const month = String(targetDate.getMonth() + 1).padStart(2, '0');
-
-      // ✅ Format AREA au lieu de COUNTRY
-      const url = `https://firms.modaps.eosdis.nasa.gov/api/burned/area/csv/${apiKey}/${FRANCE_BBOX}/${year}/${month}`;
+      // ✅ Format country pour MCD64A1
+      const url = `${FIRMS_BURNED_URL}/${apiKey}/MCD64A1/FRA`;
 
       const res = await axios.get<string>(url, {
         timeout: 60_000,
@@ -54,7 +61,12 @@ class CopernicusService {
       });
 
       if (!res.data || res.data.trim() === '') {
-        logger.warn('[BurnedAreas] Réponse vide');
+        logger.info('[BurnedAreas] Aucune zone brûlée récente');
+        return this.emptyBurned();
+      }
+
+      if (!res.data.includes(',')) {
+        logger.warn(`[BurnedAreas] Réponse inattendue: ${res.data.substring(0, 100)}`);
         return this.emptyBurned();
       }
 
@@ -72,13 +84,13 @@ class CopernicusService {
       };
 
       cache.set(cacheKey, result);
-      logger.info(`[BurnedAreas] ${features.length} zones brûlées (${year}-${month})`);
+      logger.info(`[BurnedAreas] ${features.length} zones brûlées`);
       return result;
     } catch (error) {
       if (axios.isAxiosError(error)) {
         const status = error.response?.status;
         const data = error.response?.data;
-        const msg = typeof data === 'string' ? data.substring(0, 200) : error.message;
+        const msg = typeof data === 'string' ? data.substring(0, 100) : error.message;
         logger.warn(`[BurnedAreas] HTTP ${status}: ${msg}`);
       } else {
         const msg = error instanceof Error ? error.message : 'Erreur inconnue';
@@ -89,54 +101,47 @@ class CopernicusService {
   }
 
   /**
-   * Risque incendie — EFFIS Fire Weather Index
-   * ✅ Teste plusieurs URLs EFFIS en cascade (fallback)
+   * Risque incendie — Calcul FWI simplifié basé sur Open-Meteo
+   * ✅ EFFIS n'ayant pas d'API publique, on calcule un indice de risque
+   * à partir de : température, humidité, vitesse du vent, précipitations
    */
   async getFireRisk(): Promise<FireRiskCollection> {
     const cached = cache.get<FireRiskCollection>('fire_risk');
     if (cached) return cached;
 
-    let data: unknown = null;
-    let successUrl = '';
-
-    // ✅ Tester chaque URL EFFIS jusqu'à trouver une réponse valide
-    for (const url of EFFIS_URLS) {
-      try {
-        const res = await axios.get(url, {
-          timeout: 15_000,
-          headers: {
-            'User-Agent': 'FireMaps/4.2',
-            'Accept': 'application/json',
-          },
-        });
-
-        if (res.data) {
-          data = res.data;
-          successUrl = url;
-          break;
-        }
-      } catch (err) {
-        if (axios.isAxiosError(err)) {
-          logger.warn(`[FireRisk] Échec ${url}: HTTP ${err.response?.status}`);
-        } else {
-          logger.warn(`[FireRisk] Échec ${url}: ${err instanceof Error ? err.message : 'Erreur'}`);
-        }
-      }
-    }
-
-    if (!data) {
-      logger.warn('[FireRisk] Aucune source EFFIS disponible, retour vide');
-      return this.emptyRisk();
-    }
-
     try {
-      const features = this.parseEffisRisk(data);
+      // ✅ Récupérer les données météo pour calculer le FWI simplifié
+      const requests = FRANCE_GRID.map(point =>
+        axios.get(OPEN_METEO_URL, {
+          params: {
+            latitude: point.lat,
+            longitude: point.lon,
+            hourly: 'temperature_2m,relative_humidity_2m,wind_speed_10m,precipitation',
+            wind_speed_unit: 'kmh',
+            timezone: 'Europe/Paris',
+            forecast_days: 1,
+          },
+          timeout: 10_000,
+        })
+          .then(res => this.calculateFwi(res.data, point.lon, point.lat, point.name))
+          .catch(err => {
+            logger.warn(`[FireRisk] Erreur ${point.name}: ${err.message}`);
+            return null;
+          })
+      );
+
+      const results = await Promise.allSettled(requests);
+      const features: FireRiskCollection['features'] = results
+        .filter((r): r is PromiseFulfilledResult<FireRiskCollection['features'][0] | null> =>
+          r.status === 'fulfilled')
+        .map(r => r.value)
+        .filter((f): f is FireRiskCollection['features'][0] => f !== null);
 
       const result: FireRiskCollection = {
         type: 'FeatureCollection',
         features,
         metadata: {
-          source: 'EFFIS (JRC)',
+          source: 'FWI calculé (Open-Meteo)',
           product: 'Fire Risk',
           count: features.length,
           generatedAt: new Date().toISOString(),
@@ -144,18 +149,95 @@ class CopernicusService {
       };
 
       cache.set('fire_risk', result);
-      logger.info(`[FireRisk] ${features.length} zones à risque (depuis ${successUrl})`);
+      logger.info(`[FireRisk] ${features.length} zones FWI calculées`);
       return result;
     } catch (error) {
       const msg = error instanceof Error ? error.message : 'Erreur inconnue';
-      logger.warn(`[FireRisk] Erreur parsing: ${msg}`);
+      logger.warn(`[FireRisk] ${msg}`);
       return this.emptyRisk();
     }
   }
 
   /**
-   * Parse le CSV FIRMS Burned Area en GeoJSON
+   * Calcule un indice FWI simplifié à partir des données météo Open-Meteo
+   * Formule simplifiée inspirée du Fire Weather Index canadien :
+   * FWI = f(température, humidité, vent, précipitations)
    */
+  private calculateFwi(
+    data: {
+      hourly?: {
+        time?: string[];
+        temperature_2m?: number[];
+        relative_humidity_2m?: number[];
+        wind_speed_10m?: number[];
+        precipitation?: number[];
+      };
+    },
+    lon: number,
+    lat: number,
+    name: string
+  ): FireRiskCollection['features'][0] | null {
+    const hourly = data.hourly;
+    if (!hourly || !hourly.time || hourly.time.length === 0) return null;
+
+    // Prendre les valeurs moyennes sur les prochaines 24h
+    const temps = hourly.temperature_2m || [];
+    const humids = hourly.relative_humidity_2m || [];
+    const winds = hourly.wind_speed_10m || [];
+    const precip = hourly.precipitation || [];
+
+    if (temps.length === 0) return null;
+
+    const avgTemp = temps.reduce((a, b) => a + b, 0) / temps.length;
+    const avgHumid = humids.reduce((a, b) => a + b, 0) / humids.length;
+    const avgWind = winds.reduce((a, b) => a + b, 0) / winds.length;
+    const totalPrecip = precip.reduce((a, b) => a + b, 0);
+
+    // ✅ Calcul FWI simplifié (0-100)
+    // - Température élevée → risque augmente
+    // - Humidité faible → risque augmente
+    // - Vent fort → risque augmente
+    // - Précipitations → risque diminue
+    const tempScore = Math.min(Math.max((avgTemp - 15) * 2, 0), 30); // 0-30
+    const humidScore = Math.min(Math.max((70 - avgHumid) * 0.8, 0), 40); // 0-40
+    const windScore = Math.min(avgWind * 0.5, 25); // 0-25
+    const precipPenalty = Math.min(totalPrecip * 5, 30); // 0-30 de pénalité
+
+    const fwi = Math.max(0, Math.min(100,
+      tempScore + humidScore + windScore - precipPenalty
+    ));
+
+    const delta = 0.3; // ~30km de rayon autour du point
+    const polygon: Position[][] = [
+      [
+        [lon - delta, lat - delta] as Position,
+        [lon + delta, lat - delta] as Position,
+        [lon + delta, lat + delta] as Position,
+        [lon - delta, lat + delta] as Position,
+        [lon - delta, lat - delta] as Position,
+      ],
+    ];
+
+    return {
+      type: 'Feature',
+      geometry: { type: 'Polygon', coordinates: polygon },
+      properties: {
+        riskLevel: this.riskFromFwi(fwi),
+        risk_index: Math.round(fwi),
+        product: 'Fire Risk',
+        source: 'FWI calculé (Open-Meteo)',
+        // Métadonnées supplémentaires pour le debug
+        _debug: {
+          name,
+          avgTemp: Math.round(avgTemp * 10) / 10,
+          avgHumid: Math.round(avgHumid),
+          avgWind: Math.round(avgWind * 10) / 10,
+          totalPrecip: Math.round(totalPrecip * 10) / 10,
+        },
+      },
+    };
+  }
+
   private parseBurnedCsv(
     csv: string,
     bbox: BoundingBox | null
@@ -163,14 +245,14 @@ class CopernicusService {
     const lines = csv.trim().split('\n');
     if (lines.length < 2) return [];
 
-    const headers = lines[0].split(',');
-    const latIdx = headers.indexOf('latitude');
-    const lonIdx = headers.indexOf('longitude');
-    const areaIdx = headers.indexOf('area_ha');
-    const dateIdx = headers.indexOf('burn_date');
+    const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
+    const latIdx = headers.findIndex(h => h.includes('lat'));
+    const lonIdx = headers.findIndex(h => h.includes('lon'));
+    const areaIdx = headers.findIndex(h => h.includes('area') || h.includes('burn'));
+    const dateIdx = headers.findIndex(h => h.includes('date'));
 
     if (latIdx === -1 || lonIdx === -1) {
-      logger.warn('[BurnedAreas] Colonnes latitude/longitude non trouvées dans le CSV');
+      logger.warn(`[BurnedAreas] Colonnes non trouvées. Headers: ${headers.join(', ')}`);
       return [];
     }
 
@@ -185,7 +267,6 @@ class CopernicusService {
 
       if (isNaN(lat) || isNaN(lon)) continue;
 
-      // Filtre bbox si fourni
       if (bbox) {
         if (lon < bbox.minLon || lon > bbox.maxLon || lat < bbox.minLat || lat > bbox.maxLat) {
           continue;
@@ -193,12 +274,10 @@ class CopernicusService {
       }
 
       const areaHa = areaIdx !== -1 ? parseFloat(cols[areaIdx]) || 0 : 0;
-      const burnDate = dateIdx !== -1 && cols[dateIdx] ? cols[dateIdx] : undefined;
+      const burnDate = dateIdx !== -1 && cols[dateIdx] ? cols[dateIdx].trim() : undefined;
 
-      // Créer un petit polygone autour du point (approximation)
-      const delta = Math.sqrt(areaHa / 100) * 0.01 || 0.005;
+      const delta = Math.sqrt(Math.max(areaHa, 1) / 100) * 0.01 || 0.005;
 
-      // ✅ Typage explicite des coordonnées du polygone
       const polygon: Position[][] = [
         [
           [lon - delta, lat - delta] as Position,
@@ -225,79 +304,6 @@ class CopernicusService {
     return features;
   }
 
-  /**
-   * Parse les données EFFIS FWI en GeoJSON
-   * Gère plusieurs formats possibles (tableau de points ou objet)
-   */
-  private parseEffisRisk(data: unknown): FireRiskCollection['features'] {
-    // Cas 1 : Tableau de points avec lat/lon/fwi
-    if (Array.isArray(data)) {
-      return data
-        .filter((p): p is { lat: number; lon: number; fwi?: number } =>
-          typeof p === 'object' && p !== null &&
-          typeof (p as Record<string, unknown>).lat === 'number' &&
-          typeof (p as Record<string, unknown>).lon === 'number'
-        )
-        .map(p => {
-          const delta = 0.1;
-          const polygon: Position[][] = [
-            [
-              [p.lon - delta, p.lat - delta] as Position,
-              [p.lon + delta, p.lat - delta] as Position,
-              [p.lon + delta, p.lat + delta] as Position,
-              [p.lon - delta, p.lat + delta] as Position,
-              [p.lon - delta, p.lat - delta] as Position,
-            ],
-          ];
-
-          return {
-            type: 'Feature' as const,
-            geometry: {
-              type: 'Polygon' as const,
-              coordinates: polygon,
-            },
-            properties: {
-              riskLevel: this.riskFromFwi(p.fwi || 0),
-              risk_index: p.fwi || 0,
-              product: 'Fire Risk' as const,
-              source: 'EFFIS (JRC)',
-            },
-          };
-        });
-    }
-
-    // Cas 2 : Objet avec une clé "features" ou "data"
-    if (typeof data === 'object' && data !== null) {
-      const obj = data as Record<string, unknown>;
-
-      // Sous-cas 2a : { features: [...] }
-      if (Array.isArray(obj.features)) {
-        return this.parseEffisRisk(obj.features);
-      }
-
-      // Sous-cas 2b : { data: [...] }
-      if (Array.isArray(obj.data)) {
-        return this.parseEffisRisk(obj.data);
-      }
-
-      // Sous-cas 2c : { fwi: [...], lat: [...], lon: [...] }
-      if (Array.isArray(obj.fwi) && Array.isArray(obj.lat) && Array.isArray(obj.lon)) {
-        const fwiArr = obj.fwi as number[];
-        const latArr = obj.lat as number[];
-        const lonArr = obj.lon as number[];
-        const points = latArr.map((lat, i) => ({
-          lat,
-          lon: lonArr[i],
-          fwi: fwiArr[i],
-        }));
-        return this.parseEffisRisk(points);
-      }
-    }
-
-    logger.warn('[FireRisk] Format EFFIS non reconnu, retour vide');
-    return [];
-  }
-
   private severityFromArea(areaHa: number): BurnSeverityType {
     if (areaHa > 1000) return 'critical';
     if (areaHa > 500) return 'high';
@@ -306,9 +312,9 @@ class CopernicusService {
   }
 
   private riskFromFwi(fwi: number): RiskLevelType {
-    if (fwi > 50) return 'extrême';
-    if (fwi > 30) return 'élevé';
-    if (fwi > 15) return 'modéré';
+    if (fwi > 60) return 'extrême';
+    if (fwi > 40) return 'élevé';
+    if (fwi > 20) return 'modéré';
     return 'faible';
   }
 
@@ -330,7 +336,7 @@ class CopernicusService {
       type: 'FeatureCollection',
       features: [],
       metadata: {
-        source: 'EFFIS (JRC)',
+        source: 'FWI calculé (Open-Meteo)',
         product: 'Fire Risk',
         count: 0,
         generatedAt: new Date().toISOString(),
