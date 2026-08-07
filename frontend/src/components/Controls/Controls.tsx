@@ -22,22 +22,36 @@ const Controls: React.FC = () => {
   const { data: fireRisk } = useFireRisk();
   const { data: sdisData } = useSdisData();
   
+  // ✅ État initial : ouvert par défaut
   const [open, setOpen] = useState(true);
+
+  const handleToggle = () => {
+    setOpen(prev => !prev);
+  };
 
   return (
     <div className={`controls-panel ${open ? 'expanded' : ''} ${darkMode ? 'dark' : ''}`}>
       <div
         className="controls-header"
-        onClick={() => setOpen(!open)}
+        onClick={handleToggle}
         role="button"
         aria-expanded={open}
+        aria-label={open ? 'Replier le panneau des sources de données' : 'Déplier le panneau des sources de données'}
         tabIndex={0}
-        onKeyDown={(e) => e.key === 'Enter' && setOpen(!open)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            handleToggle();
+          }
+        }}
       >
         <span className="controls-title">⚙️ Sources de données</span>
-        <span className="controls-toggle">{open ? '▲' : '▼'}</span>
+        <span className="controls-toggle" aria-hidden="true">
+          {open ? '▲' : '▼'}
+        </span>
       </div>
 
+      {/* ✅ Le contenu est rendu SEULEMENT quand open est true */}
       {open && (
         <div className="controls-content">
           <div className="control-section">
@@ -54,14 +68,14 @@ const Controls: React.FC = () => {
           <div className="control-section">
             <h3 className="section-title">🔥 Zones brûlées / Risque</h3>
             <LayerToggle
-              label="Zones brûlées (MCD64A1)"
+              label="Zones brûlées (BA_MODIS)"
               checked={showBurnedAreas}
               onChange={toggleBurnedAreas}
               count={burnedAreas?.features?.length ?? 0}
               color="#8B4513"
             />
             <LayerToggle
-              label="Risque incendie (EFFIS)"
+              label="Risque incendie (FWI)"
               checked={showFireRisk}
               onChange={toggleFireRisk}
               count={fireRisk?.features?.length ?? 0}
@@ -79,8 +93,9 @@ const Controls: React.FC = () => {
             />
             {showWind && (
               <div className="control-row slider-row">
-                <label>Opacité du vent</label>
+                <label htmlFor="wind-opacity">Opacité du vent</label>
                 <input
+                  id="wind-opacity"
                   type="range"
                   min="0.1"
                   max="1"
@@ -96,7 +111,7 @@ const Controls: React.FC = () => {
           <div className="control-section">
             <h3 className="section-title">🚒 SDIS (OpenStreetMap)</h3>
             <LayerToggle
-              label="Casernes"
+              label="Casernes de pompiers"
               checked={showSdis}
               onChange={toggleSdis}
               count={sdisData?.features?.length ?? 0}
