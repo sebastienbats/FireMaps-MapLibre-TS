@@ -375,6 +375,22 @@ FireMaps-MapLibre-TS/
 ### Prérequis
 
 - Node.js ≥ 20
+  ####
+  ```bash
+  # Installer nvm (si pas déjà installé)
+  curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash
+  # Recharger le shell
+  source ~/.bashrc
+  # Installer Node.js 20
+  nvm install 20
+  # Utiliser Node.js 20
+  nvm use 20
+  # Définir comme version par défaut
+  nvm alias default 20
+  # Vérifier
+  node --version   # v20.x.x
+  npm --version    # 10.x.x
+  ```
 - MongoDB ≥ 7
   #### Etape 1. Installer MongoDB local (Ubuntu/Debian)
    ```bash
