@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef, useCallback } from 'react';
 import maplibregl from 'maplibre-gl';
 import type { FireCollection } from '@types/index';
 import { LAYER_ORDER } from './Map';
@@ -10,6 +10,27 @@ interface FireLayerProps {
 }
 
 const FireLayer: React.FC<FireLayerProps> = ({ map, fireData, openPopup }) => {
+  // ✅ P3 : Référence pour éviter les re-rendus inutiles
+  const isInitialized = useRef(false);
+
+  // ✅ P3 : Mémoïsation du handler de clic
+  const handleClick = useCallback((e: maplibregl.MapMouseEvent & { features?: maplibregl.MapGeoJSONFeature[] }) => {
+    if (!e.features?.length) return;
+    const p = e.features[0].properties as Record<string, unknown>;
+
+    openPopup(
+      [e.lngLat.lng, e.lngLat.lat],
+      `<div style="padding:8px;max-width:250px;color:#1a1a2e">
+        <h3 style="margin:0 0 8px;color:#e74c3c">🔥 Feu ${String(p.intensity ?? 'N/A')}</h3>
+        <p style="margin:4px 0"><b>FRP:</b> ${Number(p.frp ?? 0).toFixed(1)} MW</p>
+        <p style="margin:4px 0"><b>Confiance:</b> ${String(p.confidence ?? 'N/A')}%</p>
+        <p style="margin:4px 0"><b>Satellite:</b> ${String(p.satellite ?? 'N/A')}</p>
+        <p style="margin:4px 0"><b>Capteur:</b> ${String(p.instrument ?? 'N/A')}</p>
+        <p style="margin:4px 0"><b>Date:</b> ${String(p.acq_date ?? 'N/A')}</p>
+      </div>`
+    );
+  }, [openPopup]);
+
   useEffect(() => {
     if (!map || !fireData?.features?.length) return;
 
@@ -27,7 +48,7 @@ const FireLayer: React.FC<FireLayerProps> = ({ map, fireData, openPopup }) => {
         id: 'fire-heat',
         type: 'heatmap',
         source: 'fires',
-        maxzoom: 8, // ✅ Disparaît au zoom 8
+        maxzoom: 8,
         paint: {
           'heatmap-intensity': ['interpolate', ['linear'], ['zoom'], 0, 1, 8, 3],
           'heatmap-radius': ['interpolate', ['linear'], ['zoom'], 0, 2, 8, 20],
@@ -45,7 +66,7 @@ const FireLayer: React.FC<FireLayerProps> = ({ map, fireData, openPopup }) => {
         id: 'fire-points',
         type: 'circle',
         source: 'fires',
-        minzoom: 7, // ✅ Apparaît au zoom 7
+        minzoom: 7,
         paint: {
           'circle-radius': ['interpolate', ['linear'], ['get', 'frp'], 0, 3, 50, 8, 100, 12, 200, 18],
           'circle-color': ['case', ['>', ['get', 'frp'], 100], '#c0392b', ['>', ['get', 'frp'], 50], '#e74c3c', ['>', ['get', 'frp'], 20], '#f39c12', '#f1c40f'],
@@ -59,49 +80,38 @@ const FireLayer: React.FC<FireLayerProps> = ({ map, fireData, openPopup }) => {
     // ✅ P1 : Réorganiser l'ordre des couches
     const heatIdx = LAYER_ORDER.indexOf('fire-heat');
     const pointsIdx = LAYER_ORDER.indexOf('fire-points');
-    
-    if (heatIdx > 0) {
+
+    if (heatIdx > 0 && heatIdx < LAYER_ORDER.length - 1) {
       const beforeId = LAYER_ORDER[heatIdx + 1];
       if (map.getLayer(beforeId)) {
         map.moveLayer('fire-heat', beforeId);
       }
     }
-    
-    if (pointsIdx > 0) {
+
+    if (pointsIdx > 0 && pointsIdx < LAYER_ORDER.length - 1) {
       const beforeId = LAYER_ORDER[pointsIdx + 1];
       if (map.getLayer(beforeId)) {
         map.moveLayer('fire-points', beforeId);
       }
     }
 
-    // ✅ P2 : Popup unique via openPopup
-    const clickHandler = (e: maplibregl.MapMouseEvent & { features?: maplibregl.MapGeoJSONFeature[] }): void => {
-      if (!e.features?.length) return;
-      const p = e.features[0].properties as Record<string, unknown>;
-      
-      openPopup(
-        [e.lngLat.lng, e.lngLat.lat],
-        `<div style="padding:8px;max-width:250px;color:#1a1a2e">
-          <h3 style="margin:0 0 8px;color:#e74c3c">🔥 Feu ${String(p.intensity ?? 'N/A')}</h3>
-          <p style="margin:4px 0"><b>FRP:</b> ${Number(p.frp ?? 0).toFixed(1)} MW</p>
-          <p style="margin:4px 0"><b>Confiance:</b> ${String(p.confidence ?? 'N/A')}%</p>
-          <p style="margin:4px 0"><b>Satellite:</b> ${String(p.satellite ?? 'N/A')}</p>
-          <p style="margin:4px 0"><b>Capteur:</b> ${String(p.instrument ?? 'N/A')}</p>
-          <p style="margin:4px 0"><b>Date:</b> ${String(p.acq_date ?? 'N/A')}</p>
-        </div>`
-      );
-    };
-
-    map.on('click', 'fire-points', clickHandler as (e: maplibregl.MapMouseEvent) => void);
+    // ✅ P3 : Ajouter l'écouteur une seule fois
+    if (!isInitialized.current) {
+      map.on('click', 'fire-points', handleClick as (e: maplibregl.MapMouseEvent) => void);
+      isInitialized.current = true;
+    }
 
     // ✅ P1 : Cleanup au démontage
     return () => {
-      map.off('click', 'fire-points', clickHandler as (e: maplibregl.MapMouseEvent) => void);
+      if (isInitialized.current) {
+        map.off('click', 'fire-points', handleClick as (e: maplibregl.MapMouseEvent) => void);
+        isInitialized.current = false;
+      }
       if (map.getLayer('fire-heat')) map.removeLayer('fire-heat');
       if (map.getLayer('fire-points')) map.removeLayer('fire-points');
       if (map.getSource('fires')) map.removeSource('fires');
     };
-  }, [map, fireData, openPopup]);
+  }, [map, fireData, handleClick]);
 
   return null;
 };
