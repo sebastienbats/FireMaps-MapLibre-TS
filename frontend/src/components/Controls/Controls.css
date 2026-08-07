@@ -38,7 +38,6 @@
   transition: transform .3s ease;
 }
 
-/* ✅ Contenu visible UNIQUEMENT quand expanded */
 .controls-content {
   padding: 8px 16px 16px;
   display: flex;
@@ -91,7 +90,7 @@
   gap: 10px;
   padding: 6px 8px;
   border-radius: 6px;
-  transition: background .15s;
+  transition: background .15s, opacity .2s;
 }
 
 .control-row:hover {
@@ -174,4 +173,78 @@
 
 .switch input:checked + .slider::before {
   transform: translateX(18px);
+}
+
+/* ✅ P3 : Styles pour l'exclusion mutuelle (toggles désactivés) */
+.control-row.disabled {
+  opacity: .4;
+  pointer-events: none;
+}
+
+.control-row.disabled .layer-label {
+  text-decoration: line-through;
+}
+
+.control-row.disabled .switch input {
+  cursor: not-allowed;
+}
+
+.control-row.disabled .slider {
+  background: rgba(255,255,255,.08) !important;
+}
+
+.control-row.disabled .layer-count {
+  opacity: .5;
+}
+
+/* ✅ Scrollbar personnalisée pour le contenu */
+.controls-content::-webkit-scrollbar {
+  width: 6px;
+}
+
+.controls-content::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.controls-content::-webkit-scrollbar-thumb {
+  background: rgba(255,255,255,.15);
+  border-radius: 3px;
+}
+
+.controls-content::-webkit-scrollbar-thumb:hover {
+  background: rgba(255,255,255,.3);
+}
+
+/* ✅ Mode clair : ajustement des couleurs */
+.app:not(.dark-mode) .controls-panel {
+  background: rgba(0,0,0,.03);
+  border-color: rgba(0,0,0,.08);
+}
+
+.app:not(.dark-mode) .controls-header {
+  background: rgba(0,0,0,.02);
+}
+
+.app:not(.dark-mode) .controls-header:hover {
+  background: rgba(0,0,0,.06);
+}
+
+.app:not(.dark-mode) .control-row:hover {
+  background: rgba(0,0,0,.04);
+}
+
+.app:not(.dark-mode) .section-title::after {
+  background: rgba(0,0,0,.1);
+}
+
+.app:not(.dark-mode) .layer-count {
+  background: rgba(0,0,0,.08);
+}
+
+.app:not(.dark-mode) .slider {
+  background: rgba(0,0,0,.15);
+}
+
+.app:not(.dark-mode) .control-row.disabled .slider {
+  background: rgba(0,0,0,.08) !important;
 }
