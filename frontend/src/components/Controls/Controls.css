@@ -5,10 +5,24 @@
   overflow: hidden;
   display: flex;
   flex-direction: column;
+  /* ✅ Pas de flex:1 ici, géré par App.css */
+  transition: max-height .3s ease, opacity .3s ease;
 }
 
 .controls-panel.dark {
   background: rgba(255,255,255,.03);
+}
+
+/* ✅ État replié : hauteur limitée au header uniquement */
+.controls-panel:not(.expanded) {
+  max-height: 46px;
+}
+
+/* ✅ État déplié : hauteur automatique avec scroll si nécessaire */
+.controls-panel.expanded {
+  max-height: 100%;
+  flex: 1;
+  min-height: 0;
 }
 
 .controls-header {
@@ -20,10 +34,11 @@
   user-select: none;
   flex-shrink: 0;
   transition: background .2s;
+  background: rgba(255,255,255,.02);
 }
 
 .controls-header:hover {
-  background: rgba(255,255,255,.05);
+  background: rgba(255,255,255,.08);
 }
 
 .controls-title {
@@ -34,20 +49,39 @@
 .controls-toggle {
   opacity: .5;
   font-size: .8rem;
-  transition: transform .3s;
+  transition: transform .3s ease;
+}
+
+/* ✅ Rotation de la flèche selon l'état */
+.controls-panel.expanded .controls-toggle {
+  transform: rotate(0deg);
+}
+
+.controls-panel:not(.expanded) .controls-toggle {
+  transform: rotate(180deg);
 }
 
 /* ✅ Le contenu est scrollable quand il dépasse */
 .controls-content {
-  padding: 0 16px 16px;
+  padding: 8px 16px 16px;
   overflow-y: auto;
   overflow-x: hidden;
   flex: 1;
   min-height: 0;
   
-  /* ✅ Indicateur de scroll (gradient fade) */
-  mask-image: linear-gradient(to bottom, black 90%, transparent 100%);
-  -webkit-mask-image: linear-gradient(to bottom, black 90%, transparent 100%);
+  /* ✅ Animation d'apparition */
+  animation: slideDown .3s ease;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 /* ✅ Scrollbar personnalisée */
