@@ -376,7 +376,59 @@ FireMaps-MapLibre-TS/
 
 - Node.js ≥ 20
 - MongoDB ≥ 7
-- Clé API NASA FIRMS : [inscription](https://firms.modaps.eosdis.nasa.gov/api/area/)
+  ** Etape 1. Installer MongoDB local (Ubuntu/Debian)**
+    ```bash
+    # Importer la clé GPG
+    curl -fsSL https://www.mongodb.org/static/pgp/server-7.0.asc | \
+      sudo gpg -o /usr/share/keyrings/mongodb-server-7.0.gpg --dearmor
+
+    # Ajouter le dépôt MongoDB
+    echo "deb [ arch=amd64,arm64 signed-by=/usr/share/keyrings/mongodb-server-7.0.gpg ] https://repo.mongodb.org/apt/ubuntu jammy/mongodb-org/7.0 multiverse" | \
+    sudo tee /etc/apt/sources.list.d/mongodb-org-7.0.list
+
+    # Installer
+    sudo apt-get update
+    sudo apt-get install -y mongodb-org
+    ```
+** Étape 2 — Démarrer MongoDB**
+    ```bash
+    # Démarrer le service
+    sudo systemctl start mongod
+    # Activer au démarrage
+    sudo systemctl enable mongod
+    # Vérifier le statut
+    sudo systemctl status mongod
+    ```
+**Étape 3 — Vérifier la connexion**
+    ```bash
+    # Se connecter au shell MongoDB
+    mongosh
+    # Dans le shell, vérifier que ça fonctionne
+    > db.runCommand({ ping: 1 })
+    { ok: 1 }
+    # Quitter
+    > exit
+    ```
+**Étape 4 — Créer la base de données FireMaps**
+    ```bash
+    mongosh
+    ```
+    ```javascript
+    // Créer la base et un utilisateur (optionnel pour le dev)
+    use firemaps
+    // Créer une collection de test
+    db.test.insertOne({ message: "FireMaps MongoDB fonctionne !" })
+    // Vérifier
+    db.test.find()
+    // Quitter
+    exit
+    ```
+**Étape 5 — Configurer le .env**
+    ```env
+    # backend/.env
+    MONGODB_URI=mongodb://localhost:27017/firemaps
+    ```
+  - Clé API NASA FIRMS : [inscription](https://firms.modaps.eosdis.nasa.gov/api/area/)
 
 ### 🚀 Démarrage rapide
 ```bash
