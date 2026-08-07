@@ -16,14 +16,14 @@ export interface FireProperties {
   readonly daynight: DayNightType;
   readonly intensity: FireIntensityType;
   readonly intensityClass: FireIntensityClassType;
-  readonly source: 'NASA FIRMS';
+  readonly source: string;
 }
 
 export type FireFeature = GeoJsonFeature<PointGeometry, FireProperties>;
 
 export interface FireCollection extends GeoJsonFeatureCollection<FireFeature> {
   metadata: {
-    source: 'NASA FIRMS';
+    source: string;
     sensors: FireSensorType[];
     count: number;
     generatedAt: string;
