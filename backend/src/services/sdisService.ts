@@ -43,8 +43,6 @@ class SdisService {
     const cached = cache.get<SdisCollection>('sdis_all');
     if (cached) return cached;
 
-    // ✅ Requête Overpass optimisée : limite le nombre de résultats
-    // et utilise un timeout plus court pour ne pas bloquer l'app
     const servers = [OVERPASS_URL, OVERPASS_MIRROR];
 
     for (const server of servers) {
@@ -91,7 +89,7 @@ class SdisService {
           'Content-Type': 'application/x-www-form-urlencoded',
           'User-Agent': 'FireMaps/4.2',
         },
-        timeout: 50_000, // 50s max
+        timeout: 50_000,
       }
     );
 
@@ -150,6 +148,11 @@ class SdisService {
    * Utilisées si Overpass API est indisponible ou timeout
    */
   private getFallbackData(): SdisCollection {
+    // ✅ Utiliser empty() si FALLBACK_SDIS est vide
+    if (FALLBACK_SDIS.length === 0) {
+      return this.empty();
+    }
+
     const features: SdisFeature[] = FALLBACK_SDIS.map(s => ({
       type: 'Feature',
       geometry: { type: 'Point', coordinates: [s.lon, s.lat] },
