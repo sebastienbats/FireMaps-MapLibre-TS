@@ -14,10 +14,11 @@ const TIMEOUT_MS = 30_000;
 const FRANCE_BBOX = '-5.5,41.0,10.0,51.5';
 const FIRMS_AREA_URL = 'https://firms.modaps.eosdis.nasa.gov/api/area/csv';
 
-// ✅ Noms exacts des sources FIRMS (documentés officiellement)
+// ✅ Sources exactes documentées par NASA FIRMS
+// Documentation : https://firms.modaps.eosdis.nasa.gov/api/area/
 const FIRMS_SOURCES = {
-  VIIRS: 'VIIRS_SNPP_NRT',
-  MODIS: 'MODIS_C61',  // ✅ MODIS Collection 6.1 (MODIS_T ne fonctionne plus)
+  VIIRS: 'VIIRS_SNPP_NRT',    // ✅ Correct
+  MODIS: 'MODIS_NRT',          // ✅ Corrigé : MODIS_C61 → MODIS_NRT
 } as const;
 
 class FirmsService {
@@ -65,6 +66,7 @@ class FirmsService {
     source: string,
     days: number
   ): Promise<FireFeature[]> {
+    // ✅ Format : /api/area/csv/{KEY}/{SOURCE}/{AREA}/{DAYS}
     const url = `${FIRMS_AREA_URL}/${key}/${source}/${FRANCE_BBOX}/${days}`;
 
     try {
