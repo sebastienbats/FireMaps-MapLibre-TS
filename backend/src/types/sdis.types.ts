@@ -8,7 +8,7 @@ export interface SdisProperties {
   readonly type: SdisTypeValue;
   readonly capacity: string;
   readonly contact: string;
-  readonly source: 'SDIS';
+  readonly source: string;
 }
 
 export type SdisFeature = GeoJsonFeature<PointGeometry, SdisProperties>;
