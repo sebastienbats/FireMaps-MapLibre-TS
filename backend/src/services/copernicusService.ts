@@ -8,13 +8,11 @@ import type {
 
 const cache = new NodeCache({ stdTTL: 3600 });
 
-// ✅ NASA FIRMS API pour les zones brûlées (MCD64A1)
+// ✅ NASA FIRMS API pour les zones brûlées
 const FIRMS_BURNED_URL = 'https://firms.modaps.eosdis.nasa.gov/api/burned/csv';
 
-// ✅ Open-Meteo pour calculer un indice de risque FWI simplifié
 const OPEN_METEO_URL = 'https://api.open-meteo.com/v1/meteofrance';
 
-// ✅ Points clés sur la France pour le calcul FWI
 const FRANCE_GRID: Array<{ lat: number; lon: number; name: string }> = [
   { lat: 48.8566, lon: 2.3522, name: 'Paris' },
   { lat: 43.2965, lon: 5.3698, name: 'Marseille' },
@@ -31,7 +29,8 @@ const FRANCE_GRID: Array<{ lat: number; lon: number; name: string }> = [
 class CopernicusService {
   /**
    * Zones brûlées — NASA FIRMS MCD64A1
-   * Format réel : /api/burned/csv/{KEY}/MCD64A1/{COUNTRY}
+   * ✅ Format correct : /api/burned/csv/{KEY}/MCD64A1/{DAYS}
+   * DAYS doit être entre 1 et 5
    */
   async getBurnedAreas(bbox: BoundingBox | null = null): Promise<BurnedAreaCollection> {
     const cacheKey = `burned_${JSON.stringify(bbox)}`;
@@ -45,8 +44,8 @@ class CopernicusService {
     }
 
     try {
-      // ✅ Format country pour MCD64A1
-      const url = `${FIRMS_BURNED_URL}/${apiKey}/MCD64A1/FRA`;
+      // ✅ Format correct pour MCD64A1 : 5 derniers jours maximum
+      const url = `${FIRMS_BURNED_URL}/${apiKey}/MCD64A1/5`;
 
       const res = await axios.get<string>(url, {
         timeout: 60_000,
@@ -57,7 +56,7 @@ class CopernicusService {
       });
 
       if (!res.data || res.data.trim() === '') {
-        logger.info('[BurnedAreas] Aucune zone brûlée récente');
+        logger.info('[BurnedAreas] Aucune zone brûlée sur les 5 derniers jours');
         return this.emptyBurned();
       }
 
@@ -86,7 +85,7 @@ class CopernicusService {
       if (axios.isAxiosError(error)) {
         const status = error.response?.status;
         const data = error.response?.data;
-        const msg = typeof data === 'string' ? data.substring(0, 100) : error.message;
+        const msg = typeof data === 'string' ? data.substring(0, 200) : error.message;
         logger.warn(`[BurnedAreas] HTTP ${status}: ${msg}`);
       } else {
         const msg = error instanceof Error ? error.message : 'Erreur inconnue';
@@ -96,17 +95,11 @@ class CopernicusService {
     }
   }
 
-  /**
-   * Risque incendie — Calcul FWI simplifié basé sur Open-Meteo
-   * EFFIS n'ayant pas d'API publique, on calcule un indice de risque
-   * à partir de : température, humidité, vitesse du vent, précipitations
-   */
   async getFireRisk(): Promise<FireRiskCollection> {
     const cached = cache.get<FireRiskCollection>('fire_risk');
     if (cached) return cached;
 
     try {
-      // ✅ Récupérer les données météo pour calculer le FWI simplifié
       const requests = FRANCE_GRID.map(point =>
         axios.get(OPEN_METEO_URL, {
           params: {
@@ -154,11 +147,6 @@ class CopernicusService {
     }
   }
 
-  /**
-   * Calcule un indice FWI simplifié à partir des données météo Open-Meteo
-   * Formule simplifiée inspirée du Fire Weather Index canadien :
-   * FWI = f(température, humidité, vent, précipitations)
-   */
   private calculateFwi(
     data: {
       hourly?: {
@@ -188,7 +176,6 @@ class CopernicusService {
     const avgWind = winds.reduce((a, b) => a + b, 0) / winds.length;
     const totalPrecip = precip.reduce((a, b) => a + b, 0);
 
-    // ✅ Calcul FWI simplifié (0-100)
     const tempScore = Math.min(Math.max((avgTemp - 15) * 2, 0), 30);
     const humidScore = Math.min(Math.max((70 - avgHumid) * 0.8, 0), 40);
     const windScore = Math.min(avgWind * 0.5, 25);
