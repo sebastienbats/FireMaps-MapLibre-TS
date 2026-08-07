@@ -9,7 +9,9 @@ import type {
 const cache = new NodeCache({ stdTTL: 3600 });
 
 // ✅ NASA FIRMS API pour les zones brûlées
-const FIRMS_BURNED_URL = 'https://firms.modaps.eosdis.nasa.gov/api/burned/csv';
+// Source : BA_MODIS (MODIS Burned Areas) ou BA_VIIRS (VIIRS Burned Areas)
+// Documentation : https://firms.modaps.eosdis.nasa.gov/api/data_availability/
+const FIRMS_AREA_URL = 'https://firms.modaps.eosdis.nasa.gov/api/area/csv';
 
 const OPEN_METEO_URL = 'https://api.open-meteo.com/v1/meteofrance';
 
@@ -26,10 +28,13 @@ const FRANCE_GRID: Array<{ lat: number; lon: number; name: string }> = [
   { lat: 41.9269, lon: 8.7360, name: 'Ajaccio' },
 ];
 
+// ✅ Bounding box de la France (west,south,east,north)
+const FRANCE_BBOX = '-5.5,41.0,10.0,51.5';
+
 class CopernicusService {
   /**
-   * Zones brûlées — NASA FIRMS MCD64A1
-   * ✅ Format correct : /api/burned/csv/{KEY}/MCD64A1/{DAYS}
+   * Zones brûlées — NASA FIRMS BA_MODIS (MODIS Burned Areas)
+   * ✅ Format : /api/area/csv/{KEY}/BA_MODIS/{AREA}/{DAYS}
    * DAYS doit être entre 1 et 5
    */
   async getBurnedAreas(bbox: BoundingBox | null = null): Promise<BurnedAreaCollection> {
@@ -44,8 +49,9 @@ class CopernicusService {
     }
 
     try {
-      // ✅ Format correct pour MCD64A1 : 5 derniers jours maximum
-      const url = `${FIRMS_BURNED_URL}/${apiKey}/MCD64A1/5`;
+      // ✅ Utiliser BA_MODIS comme source pour les zones brûlées
+      // Format identique aux feux actifs : /api/area/csv/{KEY}/{SOURCE}/{AREA}/{DAYS}
+      const url = `${FIRMS_AREA_URL}/${apiKey}/BA_MODIS/${FRANCE_BBOX}/5`;
 
       const res = await axios.get<string>(url, {
         timeout: 60_000,
@@ -71,7 +77,7 @@ class CopernicusService {
         type: 'FeatureCollection',
         features,
         metadata: {
-          source: 'NASA FIRMS (MCD64A1)',
+          source: 'NASA FIRMS (BA_MODIS)',
           product: 'Burned Areas',
           count: features.length,
           generatedAt: new Date().toISOString(),
@@ -273,7 +279,7 @@ class CopernicusService {
           area_ha: areaHa,
           acquisition_date: burnDate,
           product: 'Burned Areas',
-          source: 'NASA FIRMS (MCD64A1)',
+          source: 'NASA FIRMS (BA_MODIS)',
         },
       });
     }
@@ -300,7 +306,7 @@ class CopernicusService {
       type: 'FeatureCollection',
       features: [],
       metadata: {
-        source: 'NASA FIRMS (MCD64A1)',
+        source: 'NASA FIRMS (BA_MODIS)',
         product: 'Burned Areas',
         count: 0,
         generatedAt: new Date().toISOString(),
