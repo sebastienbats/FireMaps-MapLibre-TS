@@ -9,9 +9,10 @@ import type {
 } from '../types';
 
 const cache = new NodeCache({ stdTTL: parseInt(process.env.CACHE_TTL || '300', 10) });
-const FIRMS_API_URL = 'https://firms.modaps.eosdis.nasa.gov/api/country/csv';
-const COUNTRY_CODE = 'FRA';
 const TIMEOUT_MS = 30_000;
+
+// ✅ Bounding box de la France métropolitaine
+const FRANCE_BBOX = '-5.5,41.0,10.0,51.5';
 
 class FirmsService {
   async getFireData(days: number = 1): Promise<FireCollection> {
@@ -56,20 +57,24 @@ class FirmsService {
     sensor: FireSensorType,
     days: number
   ): Promise<FireFeature[]> {
-    // ✅ URL : https://firms.modaps.eosdis.nasa.gov/api/country/csv/{KEY}/{COUNTRY}/{DAYS}
-    // ✅ La clé API est dans l'URL, PAS en header Authorization
-    const url = `${FIRMS_API_URL}/${key}/${COUNTRY_CODE}/${days}`;
+    // ✅ URL format AREA (plus fiable que COUNTRY pour la France)
+    // Format : /api/area/csv/{KEY}/{AREA}/{DAYS}
+    // AREA = "min_lon,min_lat,max_lon,max_lat"
+    const url = `https://firms.modaps.eosdis.nasa.gov/api/area/csv/${key}/${FRANCE_BBOX}/${days}`;
 
     try {
       const res = await axios.get<string>(url, {
         timeout: TIMEOUT_MS,
         headers: {
-          'User-Agent': 'FireMaps/4.1',
+          'User-Agent': 'FireMaps/4.2',
           'Accept': 'text/csv',
-          // ✅ PAS de header Authorization pour FIRMS
-          // La clé est déjà dans l'URL
         },
       });
+
+      if (!res.data || res.data.trim() === '') {
+        logger.warn(`[FIRMS] Réponse vide pour ${sensor}`);
+        return [];
+      }
 
       const records: FirmsCsvRecord[] = parse(res.data, {
         columns: true,
@@ -77,12 +82,26 @@ class FirmsService {
         trim: true,
       });
 
-      return records
-        .filter(r => r.latitude && r.longitude)
-        .map(r => this.toFeature(r, sensor));
+      // Filtrer par capteur si la colonne instrument existe
+      const filtered = records.filter(r => {
+        if (!r.latitude || !r.longitude) return false;
+        // Si la colonne instrument existe, filtrer par capteur
+        if (r.instrument) {
+          return r.instrument.toUpperCase().includes(sensor);
+        }
+        return true;
+      });
+
+      return filtered.map(r => this.toFeature(r, sensor));
     } catch (error) {
-      const msg = error instanceof Error ? error.message : 'Erreur inconnue';
-      logger.warn(`[FIRMS] Erreur ${sensor}: ${msg}`);
+      if (axios.isAxiosError(error)) {
+        const status = error.response?.status;
+        const data = error.response?.data;
+        logger.warn(`[FIRMS] Erreur ${sensor}: HTTP ${status} — ${typeof data === 'string' ? data.substring(0, 200) : error.message}`);
+      } else {
+        const msg = error instanceof Error ? error.message : 'Erreur inconnue';
+        logger.warn(`[FIRMS] Erreur ${sensor}: ${msg}`);
+      }
       return [];
     }
   }
@@ -97,7 +116,7 @@ class FirmsService {
       acq_date: r.acq_date || null,
       acq_time: r.acq_time || null,
       satellite: r.satellite || 'unknown',
-      instrument: sensor,
+      instrument: (r.instrument || sensor) as FireSensorType,
       daynight: (r.daynight || 'D') as DayNightType,
       intensity: this.intensity(frp),
       intensityClass: this.intensityClass(frp),
