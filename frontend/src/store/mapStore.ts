@@ -9,6 +9,7 @@ interface MapState {
   showSdis: boolean;
   windOpacity: number;
   darkMode: boolean;
+
   toggleFires: () => void;
   toggleBurnedAreas: () => void;
   toggleFireRisk: () => void;
@@ -16,6 +17,10 @@ interface MapState {
   toggleSdis: () => void;
   setWindOpacity: (v: number) => void;
   toggleDarkMode: () => void;
+
+  // ✅ P3 : Exclusion mutuelle burned/risk
+  activateBurnedAreas: () => void;
+  activateFireRisk: () => void;
 }
 
 export const useMapStore = create<MapState>()(
@@ -29,15 +34,42 @@ export const useMapStore = create<MapState>()(
         showSdis: true,
         windOpacity: 0.7,
         darkMode: true,
-        toggleFires: () => set(s => ({ showFires: !s.showFires })),
-        toggleBurnedAreas: () => set(s => ({ showBurnedAreas: !s.showBurnedAreas })),
-        toggleFireRisk: () => set(s => ({ showFireRisk: !s.showFireRisk })),
-        toggleWind: () => set(s => ({ showWind: !s.showWind })),
-        toggleSdis: () => set(s => ({ showSdis: !s.showSdis })),
-        setWindOpacity: (v) => set({ windOpacity: v }),
-        toggleDarkMode: () => set(s => ({ darkMode: !s.darkMode })),
+
+        toggleFires: () => set(s => ({ showFires: !s.showFires }), false, 'toggleFires'),
+
+        // ✅ P3 : Exclusion mutuelle — activer burned désactive risk
+        activateBurnedAreas: () =>
+          set(
+            s => ({
+              showBurnedAreas: !s.showBurnedAreas,
+              // Si on active burned, on désactive risk
+              showFireRisk: s.showBurnedAreas ? s.showFireRisk : false,
+            }),
+            false,
+            'activateBurnedAreas'
+          ),
+
+        // ✅ P3 : Exclusion mutuelle — activer risk désactive burned
+        activateFireRisk: () =>
+          set(
+            s => ({
+              showFireRisk: !s.showFireRisk,
+              // Si on active risk, on désactive burned
+              showBurnedAreas: s.showFireRisk ? s.showBurnedAreas : false,
+            }),
+            false,
+            'activateFireRisk'
+          ),
+
+        toggleWind: () => set(s => ({ showWind: !s.showWind }), false, 'toggleWind'),
+        toggleSdis: () => set(s => ({ showSdis: !s.showSdis }), false, 'toggleSdis'),
+        setWindOpacity: (v) => set({ windOpacity: v }, false, 'setWindOpacity'),
+        toggleDarkMode: () => set(s => ({ darkMode: !s.darkMode }), false, 'toggleDarkMode'),
       }),
-      { name: 'firemaps-map', partialize: s => ({ darkMode: s.darkMode, windOpacity: s.windOpacity }) }
+      {
+        name: 'firemaps-map',
+        partialize: s => ({ darkMode: s.darkMode, windOpacity: s.windOpacity }),
+      }
     ),
     { name: 'MapStore' }
   )
