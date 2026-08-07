@@ -11,12 +11,26 @@ import type {
 const cache = new NodeCache({ stdTTL: parseInt(process.env.CACHE_TTL || '300', 10) });
 const TIMEOUT_MS = 30_000;
 
-// ✅ Bounding box de la France métropolitaine
+// ✅ Bounding box de la France métropolitaine (west,south,east,north)
 const FRANCE_BBOX = '-5.5,41.0,10.0,51.5';
+
+// ✅ Format d'URL FIRMS réel :
+// /api/area/csv/{KEY}/{SOURCE}/{AREA}/{DAY_RANGE}
+// DAY_RANGE : 1 à 5 uniquement
+const FIRMS_AREA_URL = 'https://firms.modaps.eosdis.nasa.gov/api/area/csv';
+
+// ✅ Noms exacts des sources FIRMS
+const FIRMS_SOURCES = {
+  VIIRS: 'VIIRS_SNPP_NRT',      // ou VIIRS_NOAA20_NRT
+  MODIS: 'MODIS_T',              // ou MODIS_A
+} as const;
 
 class FirmsService {
   async getFireData(days: number = 1): Promise<FireCollection> {
-    const cacheKey = `firms_${days}days`;
+    // ✅ FIRMS limite DAY_RANGE entre 1 et 5
+    const safeDays = Math.min(Math.max(days, 1), 5);
+
+    const cacheKey = `firms_${safeDays}days`;
     const cached = cache.get<FireCollection>(cacheKey);
     if (cached) return cached;
 
@@ -25,8 +39,8 @@ class FirmsService {
 
     try {
       const [viirs, modis] = await Promise.all([
-        this.fetchSensor(apiKey, 'VIIRS', days),
-        this.fetchSensor(apiKey, 'MODIS', days),
+        this.fetchSensor(apiKey, 'VIIRS', FIRMS_SOURCES.VIIRS, safeDays),
+        this.fetchSensor(apiKey, 'MODIS', FIRMS_SOURCES.MODIS, safeDays),
       ]);
 
       const features = this.dedupe([...viirs, ...modis]);
@@ -43,7 +57,7 @@ class FirmsService {
       };
 
       cache.set(cacheKey, result);
-      logger.info(`[FIRMS] ${features.length} feux (VIIRS:${viirs.length} MODIS:${modis.length})`);
+      logger.info(`[FIRMS] ${features.length} feux sur ${safeDays}j (VIIRS:${viirs.length} MODIS:${modis.length})`);
       return result;
     } catch (error) {
       const msg = error instanceof Error ? error.message : 'Erreur inconnue';
@@ -55,12 +69,11 @@ class FirmsService {
   private async fetchSensor(
     key: string,
     sensor: FireSensorType,
+    source: string,
     days: number
   ): Promise<FireFeature[]> {
-    // ✅ URL format AREA (plus fiable que COUNTRY pour la France)
-    // Format : /api/area/csv/{KEY}/{AREA}/{DAYS}
-    // AREA = "min_lon,min_lat,max_lon,max_lat"
-    const url = `https://firms.modaps.eosdis.nasa.gov/api/area/csv/${key}/${FRANCE_BBOX}/${days}`;
+    // ✅ URL correcte : /api/area/csv/{KEY}/{SOURCE}/{AREA}/{DAYS}
+    const url = `${FIRMS_AREA_URL}/${key}/${source}/${FRANCE_BBOX}/${days}`;
 
     try {
       const res = await axios.get<string>(url, {
@@ -72,7 +85,13 @@ class FirmsService {
       });
 
       if (!res.data || res.data.trim() === '') {
-        logger.warn(`[FIRMS] Réponse vide pour ${sensor}`);
+        logger.info(`[FIRMS] ${sensor}: aucun feu détecté sur ${days}j`);
+        return [];
+      }
+
+      // Si la réponse est un message d'erreur HTML/texte
+      if (!res.data.includes(',')) {
+        logger.warn(`[FIRMS] ${sensor}: réponse inattendue — ${res.data.substring(0, 100)}`);
         return [];
       }
 
@@ -80,27 +99,21 @@ class FirmsService {
         columns: true,
         skip_empty_lines: true,
         trim: true,
+        relax_column_count: true,
       });
 
-      // Filtrer par capteur si la colonne instrument existe
-      const filtered = records.filter(r => {
-        if (!r.latitude || !r.longitude) return false;
-        // Si la colonne instrument existe, filtrer par capteur
-        if (r.instrument) {
-          return r.instrument.toUpperCase().includes(sensor);
-        }
-        return true;
-      });
-
-      return filtered.map(r => this.toFeature(r, sensor));
+      return records
+        .filter(r => r.latitude && r.longitude && !isNaN(parseFloat(r.latitude)))
+        .map(r => this.toFeature(r, sensor));
     } catch (error) {
       if (axios.isAxiosError(error)) {
         const status = error.response?.status;
         const data = error.response?.data;
-        logger.warn(`[FIRMS] Erreur ${sensor}: HTTP ${status} — ${typeof data === 'string' ? data.substring(0, 200) : error.message}`);
+        const msg = typeof data === 'string' ? data.substring(0, 200) : error.message;
+        logger.warn(`[FIRMS] ${sensor}: HTTP ${status} — ${msg}`);
       } else {
         const msg = error instanceof Error ? error.message : 'Erreur inconnue';
-        logger.warn(`[FIRMS] Erreur ${sensor}: ${msg}`);
+        logger.warn(`[FIRMS] ${sensor}: ${msg}`);
       }
       return [];
     }
@@ -116,8 +129,8 @@ class FirmsService {
       acq_date: r.acq_date || null,
       acq_time: r.acq_time || null,
       satellite: r.satellite || 'unknown',
-      instrument: (r.instrument || sensor) as FireSensorType,
-      daynight: (r.daynight || 'D') as DayNightType,
+      instrument: (r.instrument as FireSensorType) || sensor,
+      daynight: (r.daynight as DayNightType) || 'D',
       intensity: this.intensity(frp),
       intensityClass: this.intensityClass(frp),
       source: 'NASA FIRMS',
