@@ -21,37 +21,29 @@ const Controls: React.FC = () => {
   const { data: burnedAreas } = useBurnedAreas();
   const { data: fireRisk } = useFireRisk();
   const { data: sdisData } = useSdisData();
-  
-  // ✅ État initial : ouvert par défaut
-  const [open, setOpen] = useState(true);
 
-  const handleToggle = () => {
-    setOpen(prev => !prev);
-  };
+  // ✅ Ouvert par défaut
+  const [open, setOpen] = useState(true);
 
   return (
     <div className={`controls-panel ${open ? 'expanded' : ''} ${darkMode ? 'dark' : ''}`}>
       <div
         className="controls-header"
-        onClick={handleToggle}
+        onClick={() => setOpen(!open)}
         role="button"
         aria-expanded={open}
-        aria-label={open ? 'Replier le panneau des sources de données' : 'Déplier le panneau des sources de données'}
         tabIndex={0}
         onKeyDown={(e) => {
           if (e.key === 'Enter' || e.key === ' ') {
             e.preventDefault();
-            handleToggle();
+            setOpen(!open);
           }
         }}
       >
         <span className="controls-title">⚙️ Sources de données</span>
-        <span className="controls-toggle" aria-hidden="true">
-          {open ? '▲' : '▼'}
-        </span>
+        <span className="controls-toggle">{open ? '▲' : '▼'}</span>
       </div>
 
-      {/* ✅ Le contenu est rendu SEULEMENT quand open est true */}
       {open && (
         <div className="controls-content">
           <div className="control-section">
