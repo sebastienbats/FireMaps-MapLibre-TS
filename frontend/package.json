@@ -1,9 +1,14 @@
 {
   "name": "firemaps-frontend",
-  "version": "4.0.0",
+  "version": "4.2.0",
   "private": true,
   "type": "module",
+  "engines": {
+    "node": ">=20.0.0",
+    "npm": ">=10.0.0"
+  },
   "scripts": {
+    "preinstall": "node ../backend/scripts/check-node-version.js",
     "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview",
